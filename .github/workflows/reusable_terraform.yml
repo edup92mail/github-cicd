@@ -6,12 +6,16 @@ on:
       Path:
         required: true
         type: string
-      AwsRole:
+      Runner:
         required: true
         type: string
       EnvYml:
         required: true
         type: string
+      AwsRole:
+        required: true
+        type: string
+
       VARS:
         required: true
         type: string
@@ -32,10 +36,9 @@ on:
         
 jobs:
   job:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.Runner  }}
     permissions:
       contents: read
-    timeout-minutes: 45
     defaults:
       run:
         working-directory: ${{ inputs.SOURCE }}
@@ -54,7 +57,9 @@ jobs:
             key = "${{ secrets.SECRET_BACKEND_KEY }}"
             dynamodb_table = "${{ secrets.SECRET_BACKEND_TABLE}}"
           EOF
-      - name: Create terraform.tfvars.json file
+      - name: Append Env Yml > terraform.tfvars.json
+        run: JSON=$(yq eval -o=json ${{ inputs.EnvYml }} | jq -c '.') ; echo "JSON=$JSON" >> $GITHUB_OUTPUT
+      - name: Append Inputs.Vars > terraform.tfvars.json
         run: echo '${{ inputs.VARS }}' >> terraform.tfvars.json
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfvars
