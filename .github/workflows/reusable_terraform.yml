@@ -1,9 +1,70 @@
+name: module_terraform
+run-name: Deploy to ${{ inputs.deploy_target }} by @${{ github.actor }}
 on:
   workflow_call:
     inputs:
-      config-path:
+      SOURCE:
+        required: true
+        type: string
+      INPUT_AWS_REGION:
+        required: true
+        type: string
+      VARS:
         required: true
         type: string
     secrets:
-      personal_access_token:
+      SECRET_AWS_KEY:
         required: true
+      SECRET_AWS_SECRET:
+        required: true
+      SECRET_BACKEND_BUCKET:
+        required: true
+      SECRET_BACKEND_KEY:
+        required: true
+      SECRET_BACKEND_TABLE:
+        required: true
+    outputs:
+      JSON:
+        value: ${{ jobs.job.outputs.JSON }}
+        
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ${{ inputs.SOURCE }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Terraform Install
+        uses: hashicorp/setup-terraform@v3
+      - name: Create Terraform Backend
+        run: |
+          cat <<EOF > backend.tfvars
+            access_key = "${{ secrets.SECRET_AWS_KEY }}"
+            secret_key = "${{ secrets.SECRET_AWS_SECRET }}"
+            region = "${{ inputs.INPUT_AWS_REGION }}"
+            bucket = "${{ secrets.SECRET_BACKEND_BUCKET }}"
+            key = "${{ secrets.SECRET_BACKEND_KEY }}"
+            dynamodb_table = "${{ secrets.SECRET_BACKEND_TABLE}}"
+          EOF
+      - name: Create terraform.tfvars.json file
+        run: echo '${{ inputs.VARS }}' >> terraform.tfvars.json
+      - name: Terraform Init
+        run: terraform init -backend-config=backend.tfvars
+      - name: Terraform Validate
+        run: terraform validate
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+      - name: Terraform Output
+        id: output
+        run: OUTPUT=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "JSON=$OUTPUT" >> $GITHUB_OUTPUT
+    env:
+      TF_VAR_INPUT_AWS_REGION: ${{ inputs.INPUT_AWS_REGION }}
+      TF_VAR_SECRET_AWS_KEY: ${{ secrets.SECRET_AWS_KEY }}
+      TF_VAR_SECRET_AWS_SECRET: ${{ secrets.SECRET_AWS_SECRET }}
+    outputs:
+      JSON: ${{ steps.output.outputs.JSON}}
