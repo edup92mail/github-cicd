@@ -12,11 +12,11 @@ on:
       EnvYml:
         required: true
         type: string
-      AwsRole:
+      EnvVars:
         required: true
         type: string
-
-      VARS:
+        default: {}
+      AwsRole:
         required: true
         type: string
     secrets:
@@ -47,6 +47,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Terraform Install
         uses: hashicorp/setup-terraform@v3
+      - name: Get Backend data
+        run:
+        
       - name: Create backend TfVars
         run: |
           cat <<EOF > env_backend.tfvars
@@ -59,7 +62,7 @@ jobs:
       - name: Append Env Yml > env_vars.json
         run: echo "[$(yq eval -o=json "${{ inputs.EnvYml }}" | jq -c '.')]" > env_vars.json
       - name: Append Inputs.Vars > env_vars.json
-        run: echo '${{ inputs.VARS }}' >> env_vars.json
+        run: echo '${{ inputs.EnvVars }}' >> env_vars.json
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfvars
       - name: Terraform Validate
