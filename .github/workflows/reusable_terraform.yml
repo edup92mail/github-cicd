@@ -3,10 +3,13 @@ run-name: Deploy to ${{ inputs.deploy_target }} by @${{ github.actor }}
 on:
   workflow_call:
     inputs:
-      SOURCE:
+      Path:
         required: true
         type: string
-      INPUT_AWS_REGION:
+      AwsRole:
+        required: true
+        type: string
+      EnvYml:
         required: true
         type: string
       VARS:
