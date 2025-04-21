@@ -41,7 +41,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.SOURCE }}
+        working-directory: ${{ inputs.Path }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,12 +50,9 @@ jobs:
       - name: Create backend TfVars
         run: |
           cat <<EOF > env_backend.tfvars
-            access_key = "${{ secrets.SECRET_AWS_KEY }}"
-            secret_key = "${{ secrets.SECRET_AWS_SECRET }}"
             region = "${{ inputs.INPUT_AWS_REGION }}"
             bucket = "${{ secrets.SECRET_BACKEND_BUCKET }}"
             key = "${{ secrets.SECRET_BACKEND_KEY }}"
-            dynamodb_table = "${{ secrets.SECRET_BACKEND_TABLE}}"
           EOF
       - name: Create empty env_vars.json
         run: touch env_vars.json
