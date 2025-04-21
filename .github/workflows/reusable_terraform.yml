@@ -15,28 +15,20 @@ on:
       EnvVars:
         required: true
         type: string
-        default: {}
+        default: "{}"
       AwsRole:
         required: true
         type: string
     secrets:
-      SECRET_AWS_KEY:
-        required: true
-      SECRET_AWS_SECRET:
-        required: true
-      SECRET_BACKEND_BUCKET:
-        required: true
-      SECRET_BACKEND_KEY:
-        required: true
-      SECRET_BACKEND_TABLE:
-        required: true
+
+      
     outputs:
       JSON:
         value: ${{ jobs.job.outputs.JSON }}
         
 jobs:
   job:
-    runs-on: ${{ inputs.Runner  }}
+    runs-on: ${{ inputs.Runner }}
     permissions:
       contents: read
     defaults:
