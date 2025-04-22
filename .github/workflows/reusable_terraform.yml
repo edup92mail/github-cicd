@@ -36,6 +36,28 @@ jobs:
         uses: actions/checkout@v4
       - name: Terraform Install
         uses: hashicorp/setup-terraform@v3
+
+      - name: Extract Aws Config aws.yml
+        run: echo "[$(yq eval -o=json ./env/aws.yml | jq -c '.')]" >> vars.json
+
+
+      - name: Extract Aws Config aws.yml
+        id: aws_config
+        run: |
+          echo "role=$(yq '.ENV_AWS_CONFIG.Role' ./env/aws.yml)" >> $GITHUB_OUTPUT
+          echo "region=$(yq '.ENV_AWS_CONFIG.Region' ./env/aws.yml)" >> $GITHUB_OUTPUT
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.aws_config.outputs.role }}
+          aws-region: ${{ steps.aws_config.outputs.region }}
+        
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::<ID_CUENTA>:role/rol-con-web-identity
+          aws-region: us-east-1
+          
       - name: Get Backend data
         run:
         
