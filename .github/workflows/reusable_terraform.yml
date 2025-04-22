@@ -6,9 +6,9 @@ on:
       Path:
         required: true
         type: string
-      Runner:
-        required: true
-        type: string
+     # Runner:
+     #   required: true
+     #   type: string
       Environment:
         required: true
         type: string
@@ -19,12 +19,9 @@ on:
       AwsRole:
         required: true
         type: string
-    secrets:
-
-      
     outputs:
-      JSON:
-        value: ${{ jobs.job.outputs.JSON }}
+      TerraformOutput:
+        value: ${{ jobs.job.outputs.TerraformOutput }}
         
 jobs:
   job:
@@ -66,11 +63,11 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve -var-file=env_vars.json
       - name: Terraform Output
-        id: output
-        run: OUTPUT=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "JSON=$OUTPUT" >> $GITHUB_OUTPUT
+        id: TerraformOutput
+        run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
     env:
       TF_VAR_INPUT_AWS_REGION: ${{ inputs.INPUT_AWS_REGION }}
       TF_VAR_SECRET_AWS_KEY: ${{ secrets.SECRET_AWS_KEY }}
       TF_VAR_SECRET_AWS_SECRET: ${{ secrets.SECRET_AWS_SECRET }}
     outputs:
-      JSON: ${{ steps.output.outputs.JSON}}
+      TerraformOutput: ${{ steps.output.outputs.JSON}}
