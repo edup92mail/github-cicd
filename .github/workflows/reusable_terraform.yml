@@ -9,10 +9,10 @@ on:
       Runner:
         required: true
         type: string
-      EnvYml:
+      Environment:
         required: true
         type: string
-      EnvVars:
+      ExtraVars:
         required: true
         type: string
         default: "{}"
@@ -49,16 +49,18 @@ jobs:
             bucket = "${{ secrets.SECRET_BACKEND_BUCKET }}"
             key = "${{ secrets.SECRET_BACKEND_KEY }}"
           EOF
-      - name: Create empty env_vars.json
-        run: touch env_vars.json
-      - name: Append Env Yml > env_vars.json
-        run: echo "[$(yq eval -o=json "${{ inputs.EnvYml }}" | jq -c '.')]" > env_vars.json
-      - name: Append Inputs.Vars > env_vars.json
-        run: echo '${{ inputs.EnvVars }}' >> env_vars.json
+      - name: Create empty vars.json
+        run: touch vars.json
+      - name: Append Vars Common Yml > vars.json
+        run: echo "[$(yq eval -o=json ./env/common.yml | jq -c '.')]" >> vars.json
+      - name: Append Vars Environment Yml > vars.json
+        run: echo "[$(yq eval -o=json ./env/${{ inputs.Environment }}.yml | jq -c '.')]" >> vars.json
+      - name: Append Inputs.ExtraVars > vars.json.json
+        run: echo '${{ inputs.EnvVars }}' >> vars.json
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfvars
       - name: Terraform Validate
-        run: terraform validate -var-file=env_vars.json
+        run: terraform validate -var-file=vars.json
       - name: Terraform Plan
         run: terraform validate -var-file=env_vars.json
       - name: Terraform Apply
