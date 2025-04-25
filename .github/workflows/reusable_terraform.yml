@@ -19,9 +19,7 @@ on:
         required: true
         type: string
         default: "{}"
-      AwsRole:
-        required: true
-        type: string
+
     outputs:
       TerraformOutput:
         value: ${{ jobs.job.outputs.TerraformOutput }}
@@ -37,6 +35,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Env Check
+        run: echo "comprobar que el env existe"
       - name: Terraform Install
         uses: hashicorp/setup-terraform@v3
       - name: Extract Env > env.yml
