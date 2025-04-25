@@ -42,19 +42,19 @@ jobs:
       - name: Extract Env > env.yml
         id: env
         run: |
-          echo "Role=$(yq '.CiCdRole' ./vars/env.yml)" >> $GITHUB_OUTPUT
+          echo "CiCdRole=$(yq '.CiCdRole' ./vars/env.yml)" >> $GITHUB_OUTPUT
+          echo "BackendBucket=$(yq '.BackendBucket' ./vars/env.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/env.yml)" >> $GITHUB_OUTPUT
-          echo "Bucket=$(yq '.BackendBucket' ./vars/env.yml)" >> $GITHUB_OUTPUT
       - name: envure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.config.outputs.Role }}
+          role-to-assume: ${{ steps.config.outputs.CiCdRole }}
           aws-region: ${{ steps.config.outputs.Region }}
       - name: Create backend TfVars
         run: |
           cat <<EOF > backend.tfvars
-            bucket = "${{ steps.config.outputs.Bucket }}"
-            key = "${{ inputs.Product}}-${{ inputs.Environment}}-state-tfstate"
+            bucket = "${{ steps.env.outputs.BackendBucket }}"
+            key = "${{ inputs.Product}}-${{ inputs.Environment}}-state.tfstate"
           EOF
       - name: Create empty vars.json
         run: touch vars.json
