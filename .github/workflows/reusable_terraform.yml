@@ -9,6 +9,9 @@ on:
      # Runner:
      #   required: true
      #   type: string
+      Product:
+        required: true
+        type: string
       Environment:
         required: true
         type: string
@@ -51,10 +54,7 @@ jobs:
         run: |
           cat <<EOF > backend.tfvars
             bucket = "${{ steps.config.outputs.Bucket }}"
-            key = "${{ secrets.SECRET_BACKEND_KEY }}" 
-
-            "state.tfstate"
-            
+            key = "${{ inputs.Product}}-${{ inputs.Environment}}-state-tfstate"
           EOF
       - name: Create empty vars.json
         run: touch vars.json
