@@ -10,9 +10,6 @@ on:
         required: false
         type: string
         default: "ubuntu-latest"
-      Product:
-        required: true
-        type: string
       Environment:
         required: false
         type: string
@@ -47,8 +44,8 @@ jobs:
           echo "All minimium Terraform files exists"
       - name: Env Check
         run: |
-          if [ ! -f "vars/env.yml" ]; then
-            echo "vars/env.yml not found"
+          if [ ! -f "vars/config.yml" ]; then
+            echo "vars/config.yml not found"
             exit 1
           fi
           environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
@@ -58,23 +55,24 @@ jobs:
           fi
       - name: Terraform Install
         uses: hashicorp/setup-terraform@v3
-      - name: Extract Env > env.yml
-        id: env
+      - name: Extract config.yml
+        id: ConfigYml
         run: |
-          echo "CiCdRoleArn=$(yq '.CiCdRoleArn' ./vars/env.yml)" >> $GITHUB_OUTPUT
-          echo "BackendBucket=$(yq '.BackendBucket' ./vars/env.yml)" >> $GITHUB_OUTPUT
-          echo "Region=$(yq '.Region' ./vars/env.yml)" >> $GITHUB_OUTPUT
+          echo "CiCdRoleArn=$(yq '.CiCdRoleArn' ./vars/config.yml)" >> $GITHUB_OUTPUT
+          echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
+          echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
+          echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.env.outputs.CiCdRoleArn }}
-          aws-region: ${{ steps.env.outputs.Region }}
+          role-to-assume: ${{ steps.ConfigYml.outputs.CiCdRoleArn }}
+          aws-region: ${{ steps.ConfigYml.outputs.Region }}
       - name: Create backend TfVars
         run: |
           cat <<EOF > backend.tfbackend
-            bucket = "${{ steps.env.outputs.BackendBucket }}"
-            key = "${{ inputs.Product}}-${{ inputs.Environment}}.tfstate"
-            region = "${{ steps.env.outputs.Region }}"
+            bucket = "${{ steps.ConfigYml.outputs.BackendBucket }}"
+            key = "{{ steps.ConfigYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
+            region = "${{ steps.ConfigYml.outputs.Region }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
