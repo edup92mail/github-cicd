@@ -11,7 +11,7 @@ on:
         type: string
         default: "ubuntu-latest"
       Environment:
-        required: false
+        required: true
         type: string
       ExtraVars:
         required: false
