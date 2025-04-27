@@ -16,10 +16,9 @@ on:
         required: true
         type: string
       ExtraVars:
-        required: true
+        required: false
         type: string
         default: "{}"
-
     outputs:
       TerraformOutput:
         value: ${{ jobs.job.outputs.TerraformOutput }}
