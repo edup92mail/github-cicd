@@ -49,8 +49,8 @@ jobs:
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.config.outputs.CiCdRole }}
-          aws-region: ${{ steps.config.outputs.Region }}
+          role-to-assume: ${{ steps.env.outputs.CiCdRole }}
+          aws-region: ${{ steps.env.outputs.Region }}
       - name: Create backend TfVars
         run: |
           cat <<EOF > backend.tfvars
