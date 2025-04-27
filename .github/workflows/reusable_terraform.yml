@@ -25,7 +25,7 @@ on:
         value: ${{ jobs.job.outputs.TerraformOutput }}
         
 jobs:
-  job:
+  TerraformPlan:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
@@ -43,13 +43,13 @@ jobs:
       - name: Extract Env > env.yml
         id: env
         run: |
-          echo "CiCdRole=$(yq '.CiCdRole' ./vars/env.yml)" >> $GITHUB_OUTPUT
+          echo "CiCdRoleArn=$(yq '.CiCdRoleArn' ./vars/env.yml)" >> $GITHUB_OUTPUT
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/env.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/env.yml)" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.env.outputs.CiCdRole }}
+          role-to-assume: ${{ steps.env.outputs.CiCdRoleArn }}
           aws-region: ${{ steps.env.outputs.Region }}
       - name: Create backend TfVars
         run: |
