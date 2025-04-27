@@ -36,8 +36,26 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Terraform files check
+        run: |
+          for file in backend.tf providers.tf variables.tf; do
+            if [ ! -f "$file" ]; then
+              echo "Error: Required Terraform File not found: $file"
+              exit 1
+            fi
+          done
+          echo "All minimium Terraform files exists"
       - name: Env Check
-        run: echo "comprobar que el env existe"
+        run: |
+          if [ ! -f "vars/env.yml" ]; then
+            echo "vars/env.yml not found"
+            exit 1
+          fi
+          environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
+          if [ ! -f "vars/${environment}.yml" ]; then
+            echo "vars/${environment}.yml not found"
+            exit 1
+          fi
       - name: Terraform Install
         uses: hashicorp/setup-terraform@v3
       - name: Extract Env > env.yml
@@ -55,7 +73,7 @@ jobs:
         run: |
           cat <<EOF > backend.tfvars
             bucket = "${{ steps.env.outputs.BackendBucket }}"
-            key = "${{ inputs.Product}}-${{ inputs.Environment}}-state.tfstate"
+            key = "${{ inputs.Product}}-${{ inputs.Environment}}.tfstate"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
