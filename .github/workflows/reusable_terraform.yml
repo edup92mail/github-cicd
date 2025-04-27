@@ -6,9 +6,10 @@ on:
       Path:
         required: true
         type: string
-     # Runner:
-     #   required: true
-     #   type: string
+      Runner:
+        required: false
+        type: string
+        default: "ubuntu-latest"
       Product:
         required: true
         type: string
