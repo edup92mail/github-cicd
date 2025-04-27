@@ -28,8 +28,8 @@ jobs:
   job:
     runs-on: ${{ inputs.Runner }}
     permissions:
-      contents: read
       id-token: write
+      contents: read 
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
