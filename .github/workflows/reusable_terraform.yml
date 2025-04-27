@@ -58,7 +58,7 @@ jobs:
             key = "${{ inputs.Product}}-${{ inputs.Environment}}-state.tfstate"
           EOF
       - name: Create empty vars.json
-        run: echo "[]" > vars.json
+        run: echo "{}" > vars.json
       - name: Append Vars Environment Yml > vars.json
         run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./vars/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
       - name: Append Inputs.ExtraVars > vars.json.json
