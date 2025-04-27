@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       Environment:
-        required: true
+        required: false
         type: string
       ExtraVars:
         required: false
@@ -62,7 +62,7 @@ jobs:
       - name: Append Vars Common Yml > vars.json
         run: yq eval -o=json ./env/common.yml | jq -s '.[0]' > vars.json
       - name: Append Vars Environment Yml > vars.json
-        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./env/${{ inputs.Environment }}.yml) > tmp.json && mv tmp.json vars.json
+        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
       - name: Append Inputs.ExtraVars > vars.json.json
         run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
       - name: Terraform Init
