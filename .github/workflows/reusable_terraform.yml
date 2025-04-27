@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Terraform files check
         run: |
-          for file in main.tf backend.tf providers.tf locals.tf variables.tf ; do
+          for file in main.tf backend.tf providers.tf locals.tf variables.tf outputs.tf; do
             if [ ! -f "$file" ]; then
               echo "Error: Required Terraform File not found: $file"
               exit 1
