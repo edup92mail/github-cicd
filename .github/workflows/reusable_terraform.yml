@@ -74,6 +74,7 @@ jobs:
           cat <<EOF > backend.tfbackend
             bucket = "${{ steps.env.outputs.BackendBucket }}"
             key = "${{ inputs.Product}}-${{ inputs.Environment}}.tfstate"
+            region = "${{ steps.env.outputs.Region }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
