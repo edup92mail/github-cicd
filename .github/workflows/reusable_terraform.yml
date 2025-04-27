@@ -16,6 +16,7 @@ on:
       Environment:
         required: false
         type: string
+        default: Prod
       ExtraVars:
         required: false
         type: string
