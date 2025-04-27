@@ -46,7 +46,7 @@ jobs:
           echo "CiCdRole=$(yq '.CiCdRole' ./vars/env.yml)" >> $GITHUB_OUTPUT
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/env.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/env.yml)" >> $GITHUB_OUTPUT
-      - name: envure AWS credentials from OIDC
+      - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ steps.config.outputs.CiCdRole }}
@@ -58,13 +58,13 @@ jobs:
             key = "${{ inputs.Product}}-${{ inputs.Environment}}-state.tfstate"
           EOF
       - name: Create empty vars.json
-        run: touch vars.json
+        run: echo "[]" > vars.json
       - name: Append Vars Common Yml > vars.json
-        run: echo "[$(yq eval -o=json ./env/common.yml | jq -c '.')]" >> vars.json
+        run: yq eval -o=json ./env/common.yml | jq -s '.[0]' > vars.json
       - name: Append Vars Environment Yml > vars.json
-        run: echo "[$(yq eval -o=json ./env/${{ inputs.Environment }}.yml | jq -c '.')]" >> vars.json
+        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./env/${{ inputs.Environment }}.yml) > tmp.json && mv tmp.json vars.json
       - name: Append Inputs.ExtraVars > vars.json.json
-        run: echo '${{ inputs.EnvVars }}' >> vars.json
+        run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfvars
       - name: Terraform Validate
