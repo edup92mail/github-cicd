@@ -71,7 +71,7 @@ jobs:
           aws-region: ${{ steps.env.outputs.Region }}
       - name: Create backend TfVars
         run: |
-          cat <<EOF > backend.tfvars
+          cat <<EOF > backend.tfbackend
             bucket = "${{ steps.env.outputs.BackendBucket }}"
             key = "${{ inputs.Product}}-${{ inputs.Environment}}.tfstate"
           EOF
@@ -82,7 +82,7 @@ jobs:
       - name: Append Inputs.ExtraVars > vars.json.json
         run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
       - name: Terraform Init
-        run: terraform init -backend-config=backend.tfvars
+        run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
         run: terraform validate -var-file=vars.json
       - name: Terraform Plan
