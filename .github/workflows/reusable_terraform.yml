@@ -42,12 +42,19 @@ jobs:
             fi
           done
           echo "All minimium Terraform files exists"
-      - name: Env Check
+      - name: Config.Yml Check
         run: |
           if [ ! -f "vars/config.yml" ]; then
             echo "vars/config.yml not found"
             exit 1
           fi
+      - name: Environment Check
+        run: |
+          if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
+            echo "Invalid Environment: ${{ inputs.Environment }}"
+            exit 1
+          fi
+          
           environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
           if [ ! -f "vars/${environment}.yml" ]; then
             echo "vars/${environment}.yml not found"
