@@ -69,7 +69,7 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          echo "GithubDeployKeyModules=$(yq '.GithubDeployKeyModules' ./vars/config.yml)" >> $GITHUB_OUTPUT
+          echo "GithubDeployKeyModules=$(yq '.GithubDeployKeyModulesB64' ./vars/config.yml | base64 -d)" >> $GITHUB_ENV
       - name: Configurar clave SSH
         uses: webfactory/ssh-agent@v0.5.4
         with:
