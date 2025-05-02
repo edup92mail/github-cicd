@@ -36,7 +36,7 @@ jobs:
       - name: Iniciar ssh-agent y agregar clave
         run: |
           eval `ssh-agent -s`
-          ssh-add - <<< "${{ secrets.MODULE_SSH_KEY }}"
+          ssh-add - <<< "${{ secrets.SSHKEY_GIT }}"
       - name: Check private key
         run: file ~/.ssh/id_rsa
       - name: test
