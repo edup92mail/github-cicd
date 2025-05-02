@@ -33,12 +33,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Set up SSH
+      - name: Iniciar ssh-agent y agregar clave
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSHKEY_GIT }}" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          eval `ssh-agent -s`
+          ssh-add - <<< "${{ secrets.MODULE_SSH_KEY }}"
       - name: Check private key
         run: file ~/.ssh/id_rsa
       - name: test
