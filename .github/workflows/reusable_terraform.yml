@@ -33,14 +33,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Iniciar ssh-agent y agregar clave
-        run: |
-          eval `ssh-agent -s`
-          ssh-add - <<< "${{ secrets.SSHKEY_GIT }}"
-      - name: Check private key
-        run: file ~/.ssh/id_rsa
-      - name: test
-        run: ssh -T git@github.com -i ~/.ssh/id_rsa
+      - name: Configurar clave SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.MODULE_SSH_KEY }}
+
+      - name: Confiar en github.com
+        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
       - name: Terraform files check
         run: |
           for file in main.tf backend.tf providers.tf data.tf variables.tf outputs.tf; do
