@@ -93,11 +93,11 @@ jobs:
         run: terraform validate -var-file=vars.json
       - name: Terraform Plan
         run: terraform validate -var-file=env_vars.json
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=env_vars.json
-      - name: Terraform Output
-        id: TerraformOutput
-        run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
+    #  - name: Terraform Apply
+    #    run: terraform apply -auto-approve -var-file=env_vars.json
+    #  - name: Terraform Output
+   #     id: TerraformOutput
+   #     run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
     env:
       TF_VAR_INPUT_AWS_REGION: ${{ inputs.INPUT_AWS_REGION }}
       TF_VAR_SECRET_AWS_KEY: ${{ secrets.SECRET_AWS_KEY }}
