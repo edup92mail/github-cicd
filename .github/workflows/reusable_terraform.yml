@@ -33,13 +33,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Configurar clave SSH
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ secrets.MODULE_SSH_KEY }}
-
-      - name: Confiar en github.com
-        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
       - name: Terraform files check
         run: |
           for file in main.tf backend.tf providers.tf data.tf variables.tf outputs.tf; do
@@ -76,6 +69,15 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
+          echo "GithubDeployKeyModules=$(yq '.GithubDeployKeyModules' ./vars/config.yml)" >> $GITHUB_OUTPUT
+      - name: Configurar clave SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ steps.ConfigYml.outputs.GithubDeployKeyModules }}
+
+      - name: Confiar en github.com
+        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
+        
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
