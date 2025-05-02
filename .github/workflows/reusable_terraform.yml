@@ -36,9 +36,11 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          printf "%s\n" "${{ secrets.SSHKEY_GIT }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSHKEY_GIT }}" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan github.com >> ~/.ssh/known_hosts
+      - name: Check private key
+        run: file ~/.ssh/id_rsa
       - name: test
         run: ssh -T git@github.com -i ~/.ssh/id_rsa
       - name: Terraform files check
