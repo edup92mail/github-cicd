@@ -33,78 +33,92 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Terraform files check
+      - name: Terraform Install
+        uses: hashicorp/setup-terraform@v3
+      - name: Required Files check
         run: |
-          for file in main.tf backend.tf providers.tf data.tf variables.tf outputs.tf; do
+          environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
+          terraform_files=("main.tf" "backend.tf" "providers.tf" "data.tf" "variables.tf" "outputs.tf")
+          config_files=("./config/aws.yml" "./config/product.yml" "./config/env/$environment")
+          for file in "${terraform_files[@]}"; do
             if [ ! -f "$file" ]; then
-              echo "Error: Required Terraform File not found: $file"
+              echo "Error: Required Terraform file not found: $file"
               exit 1
             fi
           done
-          echo "All minimium Terraform files exists"
-      - name: Config.Yml Check
+          for file in "${config_files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "Error: Required config file not found: $file"
+              exit 1
+            fi
+          done
+          echo "All minimium Files files exists"
+      - name: Extract ./config/aws.yml
+        id: LoadAwsYml
         run: |
-          if [ ! -f "vars/config.yml" ]; then
-            echo "vars/config.yml not found"
+          echo "CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/aws.yml)" >> $GITHUB_OUTPUT
+          echo "BackendBucket=$(yq '.BackendBucket' ./config/aws.yml)" >> $GITHUB_OUTPUT
+          echo "Region=$(yq '.Region' ./config/aws.yml)" >> $GITHUB_OUTPUT
+          if [ -z "$CiCdRoleArn" ] || [ "$BackendBucket" = "null" ] || [ "$Region" = "null" ]; then
+            echo "Required Product Name Variable not found"
             exit 1
           fi
-      - name: Environment Check
+      - name: Extract ./config/product.yml
+        id: LoadProductYml
         run: |
+          echo "Product=$(yq '.Product' ./config/product.yml)" >> $GITHUB_OUTPUT
+          if [ -z "$product" ] || [ "$product" = "null" ]; then
+            echo "Required Product Name Variable not found"
+            exit 1
+          fi
+      - name: Product and Environment Style Check
+        run: |
+          if ! [[ "${{ steps.LoadProductYml.outputs.Product }}" =~ ^[A-Z] ]]; then
+            echo "Error: Product debe comenzar con una letra mayúscula (A-Z)."
+            exit 1
+          fi
           if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
             echo "Invalid Environment: ${{ inputs.Environment }}"
             exit 1
           fi
-          
-          environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
-          if [ ! -f "vars/${environment}.yml" ]; then
-            echo "vars/${environment}.yml not found"
-            exit 1
+      - name: Extract ./config/sshkeys/*
+        id: LoadSshKeys
+        run: |
+          count=0
+          key_block=""
+          for keyfile in ./config/sshkeys/*.pem; do
+            [ -e "$keyfile" ] || continue
+            echo "Cargando clave: $keyfile"
+            key_block="${key_block}$(cat "$keyfile")"$'\n'
+            count=$((count + 1))
+          done
+          echo "ssh_key_count=$count" >> $GITHUB_OUTPUT
+          if [ "$count" -gt 0 ]; then
+            echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
+            echo "$key_block" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
           fi
-      - name: Terraform Install
-        uses: hashicorp/setup-terraform@v3
-      - name: Extract config.yml
-        id: ConfigYml
-        run: |
-          echo "CiCdRoleArn=$(yq '.CiCdRoleArn' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          
-      - name: Leer clave privada desde archivo .pem y cargarla en variable
-        id: load_ssh_key
-        run: |
-          key=$(cat ./vars/GithubDeployKeyModules.pem)
-          echo "SSH_KEY<<EOF" >> $GITHUB_ENV
-          echo "$key" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-      - name: Iniciar ssh-agent usando la clave del archivo
-        uses: webfactory/ssh-agent@v0.5.4
+      - name: Load ./config/sshkeys/* in Runner if exists
+        if: steps.LoadSshKeys.outputs.ssh_key_count != '0'
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ env.SSH_KEY }}
-
-      - name: Agregar github.com a known_hosts
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-        
+          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.ConfigYml.outputs.CiCdRoleArn }}
-          aws-region: ${{ steps.ConfigYml.outputs.Region }}
+          role-to-assume: ${{ steps.LoadAwsYml.outputs.CiCdRoleArn }}
+          aws-region: ${{ steps.LoadAwsYml.outputs.Region }}
       - name: Create backend TfVars
         run: |
           cat <<EOF > backend.tfbackend
-            bucket = "${{ steps.ConfigYml.outputs.BackendBucket }}"
-            key = "{{ steps.ConfigYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
-            region = "${{ steps.ConfigYml.outputs.Region }}"
+            bucket = "${{ steps.LoadAwsYml.outputs.BackendBucket }}"
+            key = "{{ steps.LoadAwsYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
+            region = "${{ steps.LoadAwsYml.outputs.Region }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
       - name: Append Vars Environment Yml > vars.json
-        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./vars/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
+        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
       - name: Append Inputs.ExtraVars > vars.json.json
         run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
       - name: Terraform Init
@@ -118,9 +132,5 @@ jobs:
     #  - name: Terraform Output
    #     id: TerraformOutput
    #     run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
-    env:
-      TF_VAR_INPUT_AWS_REGION: ${{ inputs.INPUT_AWS_REGION }}
-      TF_VAR_SECRET_AWS_KEY: ${{ secrets.SECRET_AWS_KEY }}
-      TF_VAR_SECRET_AWS_SECRET: ${{ secrets.SECRET_AWS_SECRET }}
     outputs:
       TerraformOutput: ${{ steps.output.outputs.JSON}}
