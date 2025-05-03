@@ -69,14 +69,11 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
-          echo "GithubDeployKeyModules=$(yq '.GithubDeployKeyModules' ./vars/config.yml | base64 -d)" >> $GITHUB_ENV
-      - name: Configurar clave SSH
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: ${{ steps.ConfigYml.outputs.GithubDeployKeyModules }}
+      - name: Iniciar ssh-agent y agregar clave
+        run: |
+          eval "$(ssh-agent -s)"
+          ssh-add ./vars/GithubDeployKeyModules.pem
 
-      - name: Confiar en github.com
-        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
         
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
