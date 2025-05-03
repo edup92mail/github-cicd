@@ -69,12 +69,23 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
-      - name: Iniciar ssh-agent y agregar clave desde archivo
+          
+      - name: Leer clave privada desde archivo .pem y cargarla en variable
+        id: load_ssh_key
         run: |
-          eval "$(ssh-agent -s)"
+          key=$(cat ./vars/GithubDeployKeyModules.pem)
+          echo "SSH_KEY<<EOF" >> $GITHUB_ENV
+          echo "$key" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Iniciar ssh-agent usando la clave del archivo
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ env.SSH_KEY }}
+
+      - name: Agregar github.com a known_hosts
+        run: |
           mkdir -p ~/.ssh
-          chmod 600 ./vars/GithubDeployKeyModules.pem
-          ssh-add ./vars/GithubDeployKeyModules.pem
           ssh-keyscan github.com >> ~/.ssh/known_hosts
 
         
