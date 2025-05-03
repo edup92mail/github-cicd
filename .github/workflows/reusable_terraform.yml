@@ -74,8 +74,8 @@ jobs:
         id: LoadProductYml
         run: |
           echo "Product=$(yq '.Product' ./config/product.yml)" >> $GITHUB_OUTPUT
-          if [ -z "$product" ] || [ "$product" = "null" ]; then
-            echo "Required Product Name Variable not found"
+          if [ -z "$Product" ] || [ "$Product" = "null" ]; then
+            echo "❌ Required Product Name variable not found in ./config/product.yml"
             exit 1
           fi
       - name: Product and Environment Style Check
