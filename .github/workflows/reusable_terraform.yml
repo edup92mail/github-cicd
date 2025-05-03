@@ -151,7 +151,7 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
       - name: Terraform Plan
-        run: terraform validate -var-file=env_vars.json
+        run: terraform plan -var-file=env_vars.json
     #  - name: Terraform Apply
     #    run: terraform apply -auto-approve -var-file=env_vars.json
     #  - name: Terraform Output
