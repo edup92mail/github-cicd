@@ -72,6 +72,7 @@ jobs:
       - name: Iniciar ssh-agent y agregar clave desde archivo
         run: |
           eval "$(ssh-agent -s)"
+          mkdir -p ~/.ssh
           chmod 600 ./vars/GithubDeployKeyModules.pem
           ssh-add ./vars/GithubDeployKeyModules.pem
           ssh-keyscan github.com >> ~/.ssh/known_hosts
