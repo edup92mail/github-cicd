@@ -69,10 +69,12 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./vars/config.yml)" >> $GITHUB_OUTPUT
           echo "Product=$(yq '.Product' ./vars/config.yml)" >> $GITHUB_OUTPUT
-      - name: Iniciar ssh-agent y agregar clave
+      - name: Iniciar ssh-agent y agregar clave desde archivo
         run: |
           eval "$(ssh-agent -s)"
+          chmod 600 ./vars/GithubDeployKeyModules.pem
           ssh-add ./vars/GithubDeployKeyModules.pem
+
 
         
       - name: Configure AWS credentials from OIDC
