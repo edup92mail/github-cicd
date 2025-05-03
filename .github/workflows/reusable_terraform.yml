@@ -95,23 +95,6 @@ jobs:
         run: |
           count=0
           key_block=""
-          for keyfile in ./config/sshkeys/*.pem; do
-            [ -e "$keyfile" ] || continue
-            echo "Cargando clave: $keyfile"
-            key_block="${key_block}$(cat "$keyfile")"$'\n'
-            count=$((count + 1))
-          done
-          echo "ssh_key_count=$count" >> $GITHUB_OUTPUT
-          if [ "$count" -gt 0 ]; then
-            echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
-            echo "$key_block" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          fi
-      - name: Extract ./config/sshkeys/*
-        id: LoadSshKeys
-        run: |
-          count=0
-          key_block=""
           loaded_keys=()
           for keyfile in ./config/sshkeys/*.pem; do
             [ -e "$keyfile" ] || continue
