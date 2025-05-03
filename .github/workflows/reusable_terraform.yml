@@ -60,7 +60,7 @@ jobs:
           echo "BackendBucket=$(yq '.BackendBucket' ./config/aws.yml)" >> $GITHUB_OUTPUT
           echo "Region=$(yq '.Region' ./config/aws.yml)" >> $GITHUB_OUTPUT
           if [ -z "$CiCdRoleArn" ] || [ "$BackendBucket" = "null" ] || [ "$Region" = "null" ]; then
-            echo "Required Product Name Variable not found"
+            echo "Required Aws Variable not found"
             exit 1
           fi
       - name: Extract ./config/product.yml
