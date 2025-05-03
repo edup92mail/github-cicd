@@ -39,7 +39,7 @@ jobs:
         run: |
           environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
           terraform_files=("main.tf" "backend.tf" "providers.tf" "data.tf" "variables.tf" "outputs.tf")
-          config_files=("./config/aws.yml" "./config/product.yml" "./config/env/$environment")
+          config_files=("./config/aws.yml" "./config/product.yml" "./config/env/$environment.yml")
           for file in "${terraform_files[@]}"; do
             if [ ! -f "$file" ]; then
               echo "Error: Required Terraform file not found: $file"
