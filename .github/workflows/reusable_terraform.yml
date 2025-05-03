@@ -59,11 +59,9 @@ jobs:
           CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/aws.yml)
           BackendBucket=$(yq '.BackendBucket' ./config/aws.yml)
           Region=$(yq '.Region' ./config/aws.yml)
-
           echo "CiCdRoleArn=$CiCdRoleArn" >> $GITHUB_OUTPUT
           echo "BackendBucket=$BackendBucket" >> $GITHUB_OUTPUT
           echo "Region=$Region" >> $GITHUB_OUTPUT
-
           if [ -z "$CiCdRoleArn" ] || [ "$CiCdRoleArn" = "null" ] || \
             [ -z "$BackendBucket" ] || [ "$BackendBucket" = "null" ] || \
             [ -z "$Region" ] || [ "$Region" = "null" ]; then
@@ -73,8 +71,9 @@ jobs:
       - name: Extract ./config/product.yml
         id: LoadProductYml
         run: |
-          echo "Product=$(yq '.Product' ./config/product.yml)" >> $GITHUB_OUTPUT
-          if [ -z "$Product" ] || [ "$Product" = "null" ]; then
+          product=$(yq '.Product' ./config/product.yml)
+          echo "Product=$product" >> $GITHUB_OUTPUT
+          if [ -z "$product" ] || [ "$product" = "null" ]; then
             echo "❌ Required Product Name variable not found in ./config/product.yml"
             exit 1
           fi
