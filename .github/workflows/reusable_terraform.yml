@@ -129,10 +129,18 @@ jobs:
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
-      - name: Append Vars Environment Yml > vars.json
-        run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
-      - name: Append Inputs.ExtraVars > vars.json.json
-        run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
+      - name: Append environment variables > vars.json
+        run: |
+          env_file="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
+          added_count=$(yq -o=json "$env_file" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$env_file") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from $env_file to vars.json"
+      - name: Append inputs.ExtraVars > vars.json
+        run: |
+          extra_vars='${{ inputs.ExtraVars }}'
+          added_count=$(echo "$extra_vars" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$extra_vars") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
