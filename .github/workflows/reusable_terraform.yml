@@ -74,9 +74,7 @@ jobs:
           eval "$(ssh-agent -s)"
           chmod 600 ./vars/GithubDeployKeyModules.pem
           ssh-add ./vars/GithubDeployKeyModules.pem
-      - name: Confiar en github.com
-        run: ssh-keyscan github.com >> ~/.ssh/known_hosts
-
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
         
       - name: Configure AWS credentials from OIDC
