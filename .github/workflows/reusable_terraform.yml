@@ -52,7 +52,7 @@ jobs:
               exit 1
             fi
           done
-          echo "All minimium Files files exists"
+          echo "✅ All minimium Files files exists"
       - name: Extract ./config/aws.yml
         id: LoadAwsYml
         run: |
@@ -68,6 +68,7 @@ jobs:
             echo "❌ Required AWS variable in ./config/aws.yml not found"
             exit 1
           fi
+          echo "✅ All minimium Aws variables exists"
       - name: Extract ./config/product.yml
         id: LoadProductYml
         run: |
@@ -77,16 +78,18 @@ jobs:
             echo "❌ Required Product Name variable not found in ./config/product.yml"
             exit 1
           fi
+          echo "✅ All minimium Product variables exists"
       - name: Product and Environment Style Check
         run: |
           if ! [[ "${{ steps.LoadProductYml.outputs.Product }}" =~ ^[A-Z] ]]; then
-            echo "Error: Product debe comenzar con una letra mayúscula (A-Z)."
+            echo "❌ Product debe comenzar con una letra mayúscula (A-Z)."
             exit 1
           fi
           if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
-            echo "Invalid Environment: ${{ inputs.Environment }}"
+            echo "❌ Invalid Environment: ${{ inputs.Environment }}"
             exit 1
           fi
+          echo "✅ Product and Environment names Passed"
       - name: Extract ./config/sshkeys/*
         id: LoadSshKeys
         run: |
@@ -104,17 +107,37 @@ jobs:
             echo "$key_block" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
           fi
+      - name: Extract ./config/sshkeys/*
+        id: LoadSshKeys
+        run: |
+          count=0
+          key_block=""
+          loaded_keys=()
+          for keyfile in ./config/sshkeys/*.pem; do
+            [ -e "$keyfile" ] || continue
+            key_name=$(basename "$keyfile")
+            key_block="${key_block}$(cat "$keyfile")"$'\n'
+            loaded_keys+=("$key_name")
+            count=$((count + 1))
+          done
+          echo "ssh_key_count=$count" >> $GITHUB_OUTPUT
+          if [ "$count" -gt 0 ]; then
+            echo "✅ $count claves SSH cargadas:"
+            for name in "${loaded_keys[@]}"; do
+              echo "- $name"
+            done
+            echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
+            echo "$key_block" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            echo "⚠️ No se encontraron claves SSH en ./config/sshkeys/"
+          fi
       - name: Load ./config/sshkeys/* in Runner if exists
         if: steps.LoadSshKeys.outputs.ssh_key_count != '0'
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ env.ALL_SSH_KEYS }}
-      - name: Configure AWS credentials from OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ steps.LoadAwsYml.outputs.CiCdRoleArn }}
-          aws-region: ${{ steps.LoadAwsYml.outputs.Region }}
-      - name: Create backend TfVars
+      - name: Create backend Tfbackend
         run: |
           cat <<EOF > backend.tfbackend
             bucket = "${{ steps.LoadAwsYml.outputs.BackendBucket }}"
@@ -127,6 +150,11 @@ jobs:
         run: jq -s '.[0] * .[1]' vars.json <(yq eval -o=json ./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml) > tmp.json && mv tmp.json vars.json
       - name: Append Inputs.ExtraVars > vars.json.json
         run: jq -s '.[0] * .[1]' vars.json <(echo '${{ inputs.ExtraVars }}') > tmp.json && mv tmp.json vars.json
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.LoadAwsYml.outputs.CiCdRoleArn }}
+          aws-region: ${{ steps.LoadAwsYml.outputs.Region }}
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
