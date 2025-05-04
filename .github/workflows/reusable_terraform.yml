@@ -162,11 +162,22 @@ jobs:
         run: terraform validate
       - name: Terraform Plan
         run: terraform plan -var-file=vars.json
-        timeout-minutes: 1
-    #  - name: Terraform Apply
-    #    run: terraform apply -auto-approve -var-file=vars.json
-    #  - name: Terraform Output
-   #     id: TerraformOutput
-   #     run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
+      - name: Manual Workflow Approval
+        uses: trstringer/manual-approval@v1.9.1
+        with:
+          secret: ${{ github.TOKEN }}
+          approvers: ${{ github.actor }}
+          minimum-approvals: 1
+          issue-title: "Deploying v1.3.5 to prod from staging"
+          issue-body: "Please approve or deny the deployment of version v1.3.5."
+          exclude-workflow-initiator-as-approver: false
+          fail-on-denial: true
+          additional-approved-words: 'allow'
+          additional-denied-words: 'deny'
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file=vars.json
+      - name: Terraform Output
+        id: TerraformOutput
+        run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
     outputs:
       TerraformOutput: ${{ steps.output.outputs.JSON}}
