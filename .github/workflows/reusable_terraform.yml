@@ -175,7 +175,8 @@ jobs:
             Plan output:
 
             ```
-            ${{ steps.TerraformPlan.outcome }} 
+            ${{ steps.TerraformPlan.outputs.stdout }} 
+            
             ```
           additional-approved-words: 'allow'
           additional-denied-words: 'deny'
