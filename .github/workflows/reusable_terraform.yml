@@ -106,7 +106,9 @@ jobs:
           for keyfile in ./config/deploykeys/*.pem; do
             [ -e "$keyfile" ] || continue
             key_name=$(basename "$keyfile")
-            key_block="${key_block}$(cat "$keyfile")"$'\n'
+            key_content=$(cat "$keyfile")
+            echo "::add-mask::$key_content"
+            key_block="${key_block}${key_content}"$'\n'
             loaded_keys+=("$key_name")
             count=$((count + 1))
           done
