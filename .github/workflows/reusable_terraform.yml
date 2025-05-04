@@ -168,7 +168,7 @@ jobs:
         timeout-minutes: 1
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
-        timeout-minutes: 1
+        timeout-minutes: 5
         with:
           secret: ${{ github.TOKEN }}
           approvers: ${{ github.actor }}
