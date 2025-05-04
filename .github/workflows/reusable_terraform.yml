@@ -162,10 +162,7 @@ jobs:
         run: terraform validate
       - name: Terraform Plan
         id: TerraformPlan
-        run: |
-          terraform plan -var-file=vars.json -no-color > TfPlan.txt
-          TfPlan=$(head -c 6000 TfPlan.txt | sed 's/%/%%/g')
-          echo "TfPlan=$TfPlan" >> $GITHUB_OUTPUT
+        run: terraform plan -var-file=vars.json -no-color
         timeout-minutes: 1
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
@@ -178,7 +175,7 @@ jobs:
             Plan output:
 
             ```
-            ${{ steps.TerraformPlan.outputs.TfPlan }}
+            ${{ steps.TerraformPlan.outcome }} 
             ```
           additional-approved-words: 'allow'
           additional-denied-words: 'deny'
