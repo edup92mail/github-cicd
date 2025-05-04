@@ -105,13 +105,10 @@ jobs:
           done
           echo "ssh_key_count=$count" >> $GITHUB_OUTPUT
           if [ "$count" -gt 0 ]; then
-            echo "✅ $count claves SSH cargadas:"
-            for name in "${loaded_keys[@]}"; do
-              echo "- $name"
-            done
             echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
             echo "$key_block" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
+            echo "✅ $count claves SSH cargadas: ${loaded_keys[*]/#/- }"
           else
             echo "⚠️ No se encontraron claves SSH en ./config/sshkeys/"
           fi
