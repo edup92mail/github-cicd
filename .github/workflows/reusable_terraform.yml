@@ -162,6 +162,7 @@ jobs:
         run: terraform validate
       - name: Terraform Plan
         run: terraform plan -var-file=vars.json
+        timeout-minutes: 1
     #  - name: Terraform Apply
     #    run: terraform apply -auto-approve -var-file=vars.json
     #  - name: Terraform Output
