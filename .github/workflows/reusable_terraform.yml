@@ -155,9 +155,9 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
       - name: Terraform Plan
-        run: terraform plan -var-file=env_vars.json
+        run: terraform plan -var-file=vars.json
     #  - name: Terraform Apply
-    #    run: terraform apply -auto-approve -var-file=env_vars.json
+    #    run: terraform apply -auto-approve -var-file=vars.json
     #  - name: Terraform Output
    #     id: TerraformOutput
    #     run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
