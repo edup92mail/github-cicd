@@ -26,8 +26,7 @@ jobs:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
-      contents: read 
-      issues: write
+      contents: read
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
