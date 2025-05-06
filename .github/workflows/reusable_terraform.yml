@@ -21,7 +21,7 @@ on:
         value: ${{ jobs.job.outputs.TerraformOutput }}
         
 jobs:
-  TerraformPlan:
+  Terraform:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
