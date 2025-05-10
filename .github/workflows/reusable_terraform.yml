@@ -100,7 +100,7 @@ jobs:
       - name: KeyPairs Check
         run: |
 
-          KEYPAIRS=("./config/keypairs/*")
+          KEYPAIRS=(./config/keypairs/*)
 
           if (( ${#KEYPAIRS[@]} == 0 )); then
             echo "❌ No KeyPairs Found in $KEYPAIRS."
