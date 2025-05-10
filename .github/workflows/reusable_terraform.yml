@@ -101,14 +101,14 @@ jobs:
         run: |
 
           KEYPAIRS=(./config/keypairs/*)
-
+          
           if (( ${#KEYPAIRS[@]} == 0 )); then
-            echo "❌ No KeyPairs Found in $KEYPAIRS."
+            echo "❌ No se encontró ninguna KeyPair en ./config/keypairs"
             exit 1
           fi
 
           for keyfile in "${KEYPAIRS[@]}"; do
-            echo "🔍 Checking $keyfile..."
+            echo "🔍 Comprobando $keyfile..."
             if ssh-keygen -l -f "$keyfile" &>/dev/null; then
               echo "✔️  $keyfile: Public Key OK"
             else
@@ -116,8 +116,8 @@ jobs:
               exit 1
             fi
           done
-
-          echo "✅ Keypairs Passed"
+          
+          echo "✅ Todas las KeyPairs tienen formato correcto."
       - name: Extract ./config/deploykeys/*
         id: LoadDeployKeys
         run: |
