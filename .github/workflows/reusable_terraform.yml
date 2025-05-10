@@ -101,6 +101,8 @@ jobs:
         run: |
 
           KEYPAIRS=(./config/keypairs/*)
+
+          echo "DEBUG: KEYPAIRS → ${KEYPAIRS[*]}"
           
           if (( ${#KEYPAIRS[@]} == 0 )); then
             echo "❌ No se encontró ninguna KeyPair en ./config/keypairs"
