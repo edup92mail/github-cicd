@@ -85,14 +85,23 @@ jobs:
         id: LoadDeployYml
         run: |
           f=./config/deploy.yml
-          for var in DeployCiCdRoleArn BackendBucket Region DeployKeys; do
+      
+          # Valores individuales
+          for var in DeployCiCdRoleArn BackendBucket Region; do
             val=$(yq e -r ".${var}" "$f")
-            if [[ -z "$val" || "$val" == "null" ]]; then
-              echo "❌ Required deploy variable '$var' not found in $f"
-              exit 1
-            fi
+            [[ -n "$val" && "$val" != "null" ]] || { echo "❌ Required $var not found"; exit 1; }
             echo "${var}=$val" >> $GITHUB_OUTPUT
           done
+      
+          # DeployKeys (multilínea)
+          keys=$(yq e -r '.DeployKeys[]' "$f")
+          [[ -n "$keys" && "$keys" != "null" ]] || { echo "❌ Required DeployKeys not found"; exit 1; }
+          {
+            echo "DeployKeys<<EOF"
+            printf '%s\n' "$keys"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+      
           echo "✅ All required deploy variables exist"
       - name: KeyPairs Check
         run: |
