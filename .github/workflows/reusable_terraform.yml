@@ -88,11 +88,21 @@ jobs:
       - name: Load cicd.yml
         id: CiCdYml
         run: |
-          CONTENT=$(yq e -o=json ./config/cicd.yml | jq -c .)
-          echo "Yml=$CONTENT" >> $GITHUB_OUTPUT
+          CONTENT=$(yq e -o=json ./config/cicd.yml)
+          REGION=$(echo "$CONTENT" | jq -r '.Region')
+          ROLE=$(echo "$CONTENT" | jq -r '.Role')
+          BACKENDBUCKET=$(echo "$CONTENT" | jq -r '.BackendBucket')
+          DEPLOYKEYS=$(echo "$CONTENT" | jq -c '.DeployKeys')
+          echo "REGION=$REGION" >> $GITHUB_OUTPUT
+          echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
+          echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
+          echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
     outputs:
       ProductYml: ${{ steps.ProductYml.outputs.Yml }}
-      CiCdYml: ${{ steps.CiCdYml.outputs.Yml }}
+      CiCdRegion: ${{ steps.CiCdYml.outputs.REGION }}
+      CiCdRole: ${{ steps.CiCdYml.outputs.ROLE }}
+      CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
+      CiCdDeployKeys: ${{ steps.CiCdYml.outputs.DEPLOYKEYS }}
 
   SShKeyJobs:
     runs-on: ${{ inputs.Runner }}
@@ -108,19 +118,14 @@ jobs:
       - name: Github DeployKeys Load
         id: LoadDeployKeys
         run: |
-          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -c '.DeployKeys | to_entries[]')
-          
+          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}' | to_entries[]')
           COUNT=0
           ALL_KEYS=""
-
           for ENTRY in $DEPLOYKEYS; do
             NAME=$(echo "$ENTRY" | jq -r '.key')
             KEY_B64=$(echo "$ENTRY" | jq -r '.value')
-
             echo "🔍 Validating key: $NAME"
-
             KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
-
             if echo "$KEY" | grep -q "PRIVATE KEY"; then
               echo "✅ $NAME is valid"
               ALL_KEYS="${ALL_KEYS}${KEY}"$'\n\n'
@@ -151,11 +156,10 @@ jobs:
     steps:
       - name: Generate backend.tfbackend
         run: |
-          CiCdYml='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
           cat <<EOF > backend.tfbackend
-            bucket = "$(jq -r '.BackendBucket' <<< "$CiCdYml")"
-            key    = "$(jq -r '.Product' <<< "$CiCdYml")-${{ inputs.Environment }}.tfstate"
-            region = "$(jq -r '.Region' <<< "$CiCdYml")"
+            bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
+            key    = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}-${{ inputs.Environment }}.tfstate"
+            region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
