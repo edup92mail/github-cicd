@@ -92,7 +92,7 @@ jobs:
           echo "Yml=$CONTENT" >> "$GITHUB_OUTPUT"
     outputs:
       ProductYml: ${{ steps.ProductYml.outputs.Yml }}
-      CiCdYml: ${{ needs.CiCdYml.outputs.CiCdYml.outputs.Yml }}
+      CiCdYml: ${{ steps.CiCdYml.outputs.Yml }}
 
   SShKeyJobs:
     runs-on: ${{ inputs.Runner }}
