@@ -115,17 +115,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Github DeployKeys Load
+      - name: Validate and load SSH deploy keys
         id: LoadDeployKeys
         run: |
-          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}')
+          DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
+
           COUNT=0
           ALL_KEYS=""
-          for ENTRY in $DEPLOYKEYS; do
+
+          echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]' | while read -r ENTRY; do
             NAME=$(echo "$ENTRY" | jq -r '.key')
             KEY_B64=$(echo "$ENTRY" | jq -r '.value')
+
             echo "🔍 Validating key: $NAME"
+
             KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
+
             if echo "$KEY" | grep -q "PRIVATE KEY"; then
               echo "✅ $NAME is valid"
               ALL_KEYS="${ALL_KEYS}${KEY}"$'\n\n'
@@ -135,6 +140,7 @@ jobs:
               exit 1
             fi
           done
+
           echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "ALL_SSH_KEYS<<EOF" >> "$GITHUB_ENV"
           echo "$ALL_KEYS" >> "$GITHUB_ENV"
