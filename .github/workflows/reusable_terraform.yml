@@ -84,21 +84,16 @@ jobs:
       - name: Extract ./config/deploy.yml
         id: LoadDeployYml
         run: |
-          CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/deploy.yml)
-          BackendBucket=$(yq '.BackendBucket' ./config/deploy.yml)
-          Region=$(yq '.Region' ./config/deploy.yml)
-          DeployKeys=$(yq '.DeployKeys' ./config/deploy.yml)
-          echo "CiCdRoleArn=$CiCdRoleArn" >> $GITHUB_OUTPUT
-          echo "BackendBucket=$BackendBucket" >> $GITHUB_OUTPUT
-          echo "Region=$Region" >> $GITHUB_OUTPUT
-          if [ -z "$CiCdRoleArn" ] || [ "$CiCdRoleArn" = "null" ] || \
-            [ -z "$BackendBucket" ] || [ "$BackendBucket" = "null" ] || \
-            [ -z "$Region" ] || [ "$Region" = "null" ] || \
-            [ -z "$DeployKeys" ] || [ "$DeployKeys" = "null" ]; then
-            echo "❌ Required Deploy variable in ./config/deploy.yml not found"
-            exit 1
-          fi
-          echo "✅ All minimium Deploy variables exists"
+          f=./config/deploy.yml
+          for var in DeployCiCdRoleArn BackendBucket Region DeployKeys; do
+            val=$(yq e -r ".${var}" "$f")
+            if [[ -z "$val" || "$val" == "null" ]]; then
+              echo "❌ Required deploy variable '$var' not found in $f"
+              exit 1
+            fi
+            echo "${var}=$val" >> $GITHUB_OUTPUT
+          done
+          echo "✅ All required deploy variables exist"
       - name: KeyPairs Check
         run: |
           f=./config/product.yml; p='.Ec2.KeyPairs'
