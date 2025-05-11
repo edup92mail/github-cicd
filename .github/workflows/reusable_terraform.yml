@@ -107,16 +107,16 @@ jobs:
         uses: actions/checkout@v4
       - name: AWS KeyPairs Check
         run: |
-          CONFIG='${{ needs.ExtractConfig.outputs.ProductYml }}'
+          CONFIG="${{ needs.ExtractConfig.outputs.ProductYml }}"
           mapfile -t PAIRS < <(jq -r '.Ec2.KeyPairs // {} | to_entries[] | "\(.key):::\(.value)"' <<< "$CONFIG")
 
           [[ "${#PAIRS[@]}" -eq 0 ]] && echo "❌ No se encontró ninguna KeyPair" && exit 1
 
           COUNT=0
           for entry in "${PAIRS[@]}"; do
-            IFS=':::' read -r name b64 <<< "$entry"
-            [[ -z "$b64" ]] && echo "⚠️ $name está vacío" && exit 1
-            key=$(echo "$b64" | base64 -d 2>/dev/null) || { echo "❌ Error de decodificación en $name"; exit 1; }
+            IFS=':::' read -r name encoded <<< "$entry"
+            [[ -z "$encoded" ]] && echo "⚠️ $name está vacío" && exit 1
+            key=$(echo "$encoded" | base64 -d 2>/dev/null) || { echo "❌ Error de decodificación en $name"; exit 1; }
             fingerprint=$(echo "$key" | ssh-keygen -l -f /dev/stdin 2>/dev/null) || { echo "🚫 $name inválida"; exit 1; }
             echo "✔️ $name válida → $fingerprint"
             ((COUNT++))
