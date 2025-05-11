@@ -39,8 +39,7 @@ jobs:
         run: |
           environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
           terraform_files=("main.tf" "backend.tf" "providers.tf" "data.tf" "variables.tf" "outputs.tf")
-          config_files=("./config/aws.yml" "./config/product.yml" "./config/env/$environment.yml")
-          required_directories=("./config/deploykeys" "./config/keypairs")
+          config_files=("./config/deploy.yml" "./config/product.yml" "./config/env/$environment.yml")
           for file in "${terraform_files[@]}"; do
             if [ ! -f "$file" ]; then
               echo "Error: Required Terraform file not found: $file"
@@ -53,98 +52,89 @@ jobs:
               exit 1
             fi
           done
-          for dir in "${required_directories[@]}"; do
-            if [ ! -d "$dir" ]; then
-              echo "Error: Required directory not found: $dir"
-              exit 1
-            fi
-          done
           echo "✅ All minimium Files files exists"
-      - name: Extract ./config/aws.yml
-        id: LoadAwsYml
-        run: |
-          CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/aws.yml)
-          BackendBucket=$(yq '.BackendBucket' ./config/aws.yml)
-          Region=$(yq '.Region' ./config/aws.yml)
-          echo "CiCdRoleArn=$CiCdRoleArn" >> $GITHUB_OUTPUT
-          echo "BackendBucket=$BackendBucket" >> $GITHUB_OUTPUT
-          echo "Region=$Region" >> $GITHUB_OUTPUT
-          if [ -z "$CiCdRoleArn" ] || [ "$CiCdRoleArn" = "null" ] || \
-            [ -z "$BackendBucket" ] || [ "$BackendBucket" = "null" ] || \
-            [ -z "$Region" ] || [ "$Region" = "null" ]; then
-            echo "❌ Required AWS variable in ./config/aws.yml not found"
-            exit 1
-          fi
-          echo "✅ All minimium Aws variables exists"
-      - name: Extract ./config/product.yml
-        id: LoadProductYml
-        run: |
-          product=$(yq '.Product' ./config/product.yml)
-          echo "Product=$product" >> $GITHUB_OUTPUT
-          if [ -z "$product" ] || [ "$product" = "null" ]; then
-            echo "❌ Required Product Name variable not found in ./config/product.yml"
-            exit 1
-          fi
-          echo "✅ All minimium Product variables exists"
       - name: Product and Environment Style Check
         run: |
-          if ! [[ "${{ steps.LoadProductYml.outputs.Product }}" =~ ^[A-Z] ]]; then
-            echo "❌ Product debe comenzar con una letra mayúscula (A-Z)."
+          product=$(yq e '.Product' ./config/product.yml)
+          if ! [[ "$product" =~ ^[A-Z] ]]; then
+            echo "❌ Product debe comenzar con una letra mayúscula (A-Z). (Found: '$product')"
             exit 1
           fi
           if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
             echo "❌ Invalid Environment: ${{ inputs.Environment }}"
             exit 1
           fi
-          echo "✅ Product and Environment names Passed"
-      - name: KeyPairs Check
+          echo "✅ Product '$product' y Environment '$env' válidos"
+      - name: Check ./config/product.yml
         run: |
-
-          KEYPAIRS=(./config/keypairs/*)
-
-          echo "DEBUG: KEYPAIRS → ${KEYPAIRS[*]}"
-          
-          if (( ${#KEYPAIRS[@]} == 0 )); then
-            echo "❌ No se encontró ninguna KeyPair en ./config/keypairs"
-            exit 1
-          fi
-
-          for keyfile in "${KEYPAIRS[@]}"; do
-            echo "🔍 Comprobando $keyfile..."
-            if ssh-keygen -l -f "$keyfile" &>/dev/null; then
-              echo "✔️  $keyfile: Public Key OK"
+          check_key() {
+            local key="$1"
+            if grep -qE "^[[:space:]]*${key}:" "./config/product.yml"; then
+              echo "✅ La clave '$key' existe"
             else
-              echo "🚫 $keyfile: Public Key ERROR" >&2
+              echo "❌ ERROR: Falta la clave '$key'" >&2
               exit 1
             fi
+          }
+
+          # Comprobar cada clave
+          for key in Product Network Ec2; do
+            check_key "$key"
           done
-          
-          echo "✅ Todas las KeyPairs tienen formato correcto."
-      - name: Extract ./config/deploykeys/*
+      - name: Extract ./config/deploy.yml
+        id: LoadDeployYml
+        run: |
+          CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/deploy.yml)
+          BackendBucket=$(yq '.BackendBucket' ./config/deploy.yml)
+          Region=$(yq '.Region' ./config/deploy.yml)
+          echo "CiCdRoleArn=$CiCdRoleArn" >> $GITHUB_OUTPUT
+          echo "BackendBucket=$BackendBucket" >> $GITHUB_OUTPUT
+          echo "Region=$Region" >> $GITHUB_OUTPUT
+          echo "DeployKeys=$DeployKeys" >> $GITHUB_OUTPUT
+          if [ -z "$CiCdRoleArn" ] || [ "$CiCdRoleArn" = "null" ] || \
+            [ -z "$BackendBucket" ] || [ "$BackendBucket" = "null" ] || \
+            [ -z "$Region" ] || [ "$Region" = "null" ] || \
+            [ -z "$DeployKeys" ] || [ "$DeployKeys" = "null" ]; then
+            echo "❌ Required Deploy variable in ./config/deploy.yml not found"
+            exit 1
+          fi
+          echo "✅ All minimium Deploy variables exists"
+      - name: KeyPairs Check
+        run: |
+          f=./config/product.yml; p='.Ec2.KeyPairs'
+          # Asegura que haya al menos una KeyPair
+          (( $(yq e "$p|length" $f) )) || { echo "❌ No se encontró ninguna KeyPair"; exit 1; }
+          # Para cada clave, decodifica base64 y pásala a ssh-keygen
+          for k in $(yq e "$p|keys|.[]" $f); do
+            echo "🔍 $k"
+            ssh-keygen -l -f <(yq e "$p.\"$k\"" $f | base64 -d) \
+              && echo "✔️ $k OK" || { echo "🚫 $k ERROR"; exit 1; }
+          done
+          echo "✅ Todas las KeyPairs válidas"
+      - name: Load DeployKeys from ./config/deploy.yml
         id: LoadDeployKeys
         run: |
-          count=0
-          key_block=""
-          loaded_keys=()
-          for keyfile in ./config/deploykeys/*.pem; do
-            [ -e "$keyfile" ] || continue
-            key_name=$(basename "$keyfile")
-            key_content=$(cat "$keyfile")
-            echo "::add-mask::$key_content"
-            key_block="${key_block}${key_content}"$'\n'
-            loaded_keys+=("$key_name")
-            count=$((count + 1))
-          done
-          echo "ssh_key_count=$count" >> $GITHUB_OUTPUT
-          if [ "$count" -gt 0 ]; then
-            echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
-            echo "$key_block" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-            echo "✅ $count claves SSH cargadas: ${loaded_keys[*]/#/- }"
+          # Cuenta cuántas DeployKeys hay
+          c=$(yq e '.DeployKeys|length' ./config/deploy.yml)
+          echo "ssh_key_count=$c" >> $GITHUB_OUTPUT
+
+          # Si hay al menos una, decodifica todo de golpe
+          if (( c > 0 )); then
+            data=$(yq e -r '.DeployKeys[]' ./config/deploy.yml | base64 -d)
+
+            # Enmascara y exporta
+            echo "::add-mask::$data"
+            {
+              echo "ALL_SSH_KEYS<<EOF"
+              printf '%s\n' "$data"
+              echo "EOF"
+            } >> $GITHUB_ENV
+
+            echo "✅ $c claves SSH cargadas"
           else
-            echo "⚠️ No se encontraron claves SSH en ./config/deploykeys/"
+            echo "⚠️ No se encontraron DeployKeys"
           fi
-      - name: Load ./config/deploykeys/* in Runner if exists
+      - name: Load DeployKeys in Runner if exists
         if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -158,12 +148,18 @@ jobs:
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
-      - name: Append ENV_PRODUCT > vars.json
+      - name: Append ./config/product.yml > vars.json
         run: |
-          env_value="${{ inputs.Environment }}"
-          product="${{ steps.LoadProductYml.outputs.Product }}"
-          jq --arg env "$env_value" --arg name "$product" '.ENV_PRODUCT = { Name: $name, Environment: $env }' vars.json > tmp.json && mv tmp.json vars.json
-          echo "✅ ENV_PRODUCT block with Name \"$name\" and Environment \"$env_value\" added to vars.json"
+          product_file="./config/env/product.yml"
+          added_count=$(yq -o=json "$product_file" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$product_file") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from $product_file to vars.json"
+      - name: Append Environment String > vars.json
+        run: |
+          jq --arg env "${{ inputs.Environment }}" \
+            '.Environment = $env' \
+            vars.json > vars.json.tmp && mv vars.json.tmp vars.json
+          echo "✅ Environment \"${{ inputs.Environment }}\" added to vars.json"
       - name: Append environment variables > vars.json
         run: |
           env_file="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
