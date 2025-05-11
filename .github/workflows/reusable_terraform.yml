@@ -105,16 +105,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Aws KeyPairs Check
+      - name: AWS KeyPairs Check
         run: |
-          jq -r '.Ec2.KeyPairs // {} | to_entries[]' <<<"${{ needs.ExtractConfig.outputs.ProductYml.outputs.Yml }}" | while read -r entry; do
-            key=$(jq -r '.key' <<<"$entry")
-            val=$(jq -r '.value' <<<"$entry")
-            echo "🔍 $key"
-            echo "$val" | base64 -d | ssh-keygen -l -f /dev/stdin \
-              && echo "✔️ $key OK" || { echo "🚫 $key ERROR"; exit 1; }
-          done || { echo "❌ No se encontró ninguna KeyPair"; exit 1; }
-          echo "✅ Todas las KeyPairs válidas"
+          jq -r '.Ec2.KeyPairs // {} | to_entries[] | "\(.key):::\(.value)"' <<< '${{ needs.ExtractConfig.outputs.ProductYml.outputs.Yml }}' |
+          while IFS=':::' read -r name b64; do
+            [[ -z "$b64" ]] && echo "⚠️ $name está vacío" && exit 1
+            key=$(echo "$b64" | base64 -d 2>/dev/null) || { echo "❌ Error de decodificación en $name"; exit 1; }
+            fingerprint=$(echo "$key" | ssh-keygen -l -f /dev/stdin 2>/dev/null) || { echo "🚫 $name inválida"; exit 1; }
+            echo "✔️ $name válida → $fingerprint"
+          done
+
+          echo "✅ Todas las KeyPairs son válidas"
       - name: Github DeployKeys Load
         run: |
           CONFIG='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
