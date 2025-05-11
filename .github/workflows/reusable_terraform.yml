@@ -81,18 +81,32 @@ jobs:
           for key in Product Network Ec2; do
             check_key "$key"
           done
-      - name: Extract ./config/deploy.yml
+      - name: Extract deploy variables
         id: LoadDeployYml
         run: |
           f=./config/deploy.yml
-          for var in DeployCiCdRoleArn BackendBucket Region DeployKeys; do
-            val=$(yq e -r ".${var}" "$f")
-            [[ -n "$val" && "$val" != "null" ]] || { echo "❌ Required $var not found"; exit 1; }
-            # Aquí renombramos DeployCiCdRoleArn → CiCdRoleArn
-            out_name=$([[ "$var" == "DeployCiCdRoleArn" ]] && echo "CiCdRoleArn" || echo "$var")
-            echo "${out_name}=$val" >> $GITHUB_OUTPUT
+      
+          # extrae y valida valores simples
+          CiCdRoleArn=$(yq e -r '.DeployCiCdRoleArn' "$f")
+          BackendBucket=$(yq e -r '.BackendBucket'       "$f")
+          Region=$(yq e -r '.Region'                    "$f")
+          for var in CiCdRoleArn BackendBucket Region; do
+            val=${!var}
+            [[ -n $val && $val != "null" ]] || { echo "❌ $var not found in $f"; exit 1; }
+            echo "$var=$val" >> $GITHUB_OUTPUT
           done
+      
+          # extrae y valida la key base64 (único campo Modules)
+          key=$(yq e -r '.DeployKeys.Modules' "$f")
+          [[ -n $key && $key != "null" ]] || { echo "❌ DeployKeys.Modules not found in $f"; exit 1; }
+      
+          # usa sintaxis de múltiples líneas para GITHUB_OUTPUT
+          echo "DeployKeys<<EOF" >> $GITHUB_OUTPUT
+          printf '%s\n' "$key" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
           echo "✅ All required deploy variables exist"
+
       - name: KeyPairs Check
         run: |
           f=./config/product.yml; p='.Ec2.KeyPairs'
