@@ -18,10 +18,11 @@ on:
         default: "{}"
     outputs:
       TerraformOutput:
-        value: ${{ jobs.job.outputs.TerraformOutput }}
+        value: ${{ jobs.Terraform.outputs.TerraformOutput }}
         
 jobs:
-  Terraform:
+
+  Checks:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
@@ -33,8 +34,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Terraform Install
-        uses: hashicorp/setup-terraform@v3
       - name: Required Files check
         run: |
           environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
@@ -53,19 +52,7 @@ jobs:
             fi
           done
           echo "✅ All minimium Files files exists"
-      - name: Product and Environment Style Check
-        run: |
-          product=$(yq e '.Product' ./config/product.yml)
-          if ! [[ "$product" =~ ^[A-Z] ]]; then
-            echo "❌ Product debe comenzar con una letra mayúscula (A-Z). (Found: '$product')"
-            exit 1
-          fi
-          if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
-            echo "❌ Invalid Environment: ${{ inputs.Environment }}"
-            exit 1
-          fi
-          echo "✅ Product '$product' y Environment '$env' válidos"
-      - name: Check ./config/product.yml
+      - name: Check ./config/product.yml minium keys
         run: |
           check_key() {
             local key="$1"
@@ -81,6 +68,35 @@ jobs:
           for key in Product Network Ec2; do
             check_key "$key"
           done
+      - name: Product and Environment Style Check
+        run: |
+          product=$(yq e '.Product' ./config/product.yml)
+          if ! [[ "$product" =~ ^[A-Z] ]]; then
+            echo "❌ Product debe comenzar con una letra mayúscula (A-Z). (Found: '$product')"
+            exit 1
+          fi
+          if [[ "${{ inputs.Environment }}" != "Prod" && "${{ inputs.Environment }}" != "Dev" ]]; then
+            echo "❌ Invalid Environment: ${{ inputs.Environment }}"
+            exit 1
+          fi
+          echo "✅ Product '$product' y Environment '$env' válidos"
+
+  Terraform:
+    runs-on: ${{ inputs.Runner }}
+    permissions:
+      id-token: write
+      contents: read 
+      issues: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [Checks]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Terraform Install
+        uses: hashicorp/setup-terraform@v3
+
       - name: Extract deploy variables
         id: LoadDeployYml
         run: |
@@ -216,6 +232,6 @@ jobs:
         run: terraform apply -auto-approve -var-file=vars.json
       - name: Terraform Output
         id: TerraformOutput
-        run: JSON=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$JSON" >> $GITHUB_OUTPUT
+        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
     outputs:
-      TerraformOutput: ${{ steps.output.outputs.JSON}}
+      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
