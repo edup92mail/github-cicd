@@ -54,7 +54,7 @@ jobs:
         done
     - name: Validate minimal keys in cicd.yml
       run: |
-        for key in Region Role BackendBucket; do
+        for key in Region Role BackendBucket DeployKeys; do
           grep -qE "^[[:space:]]*${key}:" ./config/cicd.yml \
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
