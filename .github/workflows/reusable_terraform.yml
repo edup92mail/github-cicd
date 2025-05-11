@@ -107,8 +107,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Github DeployKeys Load
         run: |
-          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys')
+          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys | to_entries[] | @base64')
           echo $DEPLOYKEYS;
+
+          
 
 
 
@@ -155,61 +157,3 @@ jobs:
           added_count=$(yq -o=json "$Vars" | jq 'keys | length')
           jq -s '.[0] * .[1]' vars.json <(yq -o=json "$Vars") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from $env_file to vars.json"
-
-  Terraform:
-    runs-on: ${{ inputs.Runner }}
-    permissions:
-      id-token: write
-      contents: read 
-      issues: write
-    defaults:
-      run:
-        working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig, ExtractConfig, SShKeyJobs, CreateTfFiles]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Extract AWS Config from CiCdYml
-        id: AwsVars
-        run: |
-          CONFIG='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
-          ROLE=$(jq -r '.Role' <<< "$CONFIG")
-          REGION=$(jq -r '.Region' <<< "$CONFIG")
-          echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
-          echo "REGION=$REGION" >> $GITHUB_OUTPUT
-      - name: Configure AWS credentials from OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ steps.AwsVars.outputs.ROLE }}
-          aws-region: ${{ steps.AwsVars.outputs.REGION }}
-      - name: Terraform Init
-        run: terraform init -backend-config=backend.tfbackend
-      - name: Terraform Validate
-        run: terraform validate
-      - name: Terraform Plan
-        id: TerraformPlan
-        run: terraform plan -var-file=vars.json -no-color
-        timeout-minutes: 1
-      - name: Manual Workflow Approval
-        uses: trstringer/manual-approval@v1.9.1
-        timeout-minutes: 5
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: ${{ github.actor }}
-          issue-title: "Terraform Apply to Product ${{ steps.ProductYml.outputs.Product }} in Env ${{ inputs.Environment }}"
-          issue-body: |
-            Plan output:
-
-            ```
-            ${{ steps.TerraformPlan.outputs.stdout }} 
-            
-            ```
-          additional-approved-words: 'allow'
-          additional-denied-words: 'deny'
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=vars.json
-      - name: Terraform Output
-        id: TerraformOutput
-        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
-    outputs:
-      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
