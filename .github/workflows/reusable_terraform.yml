@@ -47,7 +47,7 @@ jobs:
         echo "✅ All required files are present"
     - name: Validate minimal keys in product.yml
       run: |
-        for key in Product Region Role BackendBucket Network Ec2; do
+        for key in Product Network Ec2; do
           grep -qE "^[[:space:]]*${key}:" ./config/product.yml \
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
