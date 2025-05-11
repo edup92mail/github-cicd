@@ -87,10 +87,10 @@ jobs:
           CiCdRoleArn=$(yq '.CiCdRoleArn' ./config/deploy.yml)
           BackendBucket=$(yq '.BackendBucket' ./config/deploy.yml)
           Region=$(yq '.Region' ./config/deploy.yml)
+          DeployKeys=$(yq '.DeployKeys' ./config/deploy.yml)
           echo "CiCdRoleArn=$CiCdRoleArn" >> $GITHUB_OUTPUT
           echo "BackendBucket=$BackendBucket" >> $GITHUB_OUTPUT
           echo "Region=$Region" >> $GITHUB_OUTPUT
-          echo "DeployKeys=$DeployKeys" >> $GITHUB_OUTPUT
           if [ -z "$CiCdRoleArn" ] || [ "$CiCdRoleArn" = "null" ] || \
             [ -z "$BackendBucket" ] || [ "$BackendBucket" = "null" ] || \
             [ -z "$Region" ] || [ "$Region" = "null" ] || \
