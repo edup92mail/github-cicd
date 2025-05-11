@@ -84,12 +84,12 @@ jobs:
         id: ProductYml
         run: |
           CONTENT=$(yq e -o=json ./config/product.yml | jq -c .)
-          echo "Yml=$CONTENT" >> "$GITHUB_OUTPUT"
+          echo "Yml=$CONTENT" >> $GITHUB_OUTPUT
       - name: Load cicd.yml
         id: CiCdYml
         run: |
           CONTENT=$(yq e -o=json ./config/cicd.yml | jq -c .)
-          echo "Yml=$CONTENT" >> "$GITHUB_OUTPUT"
+          echo "Yml=$CONTENT" >> $GITHUB_OUTPUT
     outputs:
       ProductYml: ${{ steps.ProductYml.outputs.Yml }}
       CiCdYml: ${{ steps.CiCdYml.outputs.Yml }}
