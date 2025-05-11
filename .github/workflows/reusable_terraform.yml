@@ -187,7 +187,7 @@ jobs:
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.LoadAwsYml.outputs.CiCdRoleArn }}
+          role-to-assume: ${{ steps.LoadDeployYml.outputs.CiCdRoleArn }}
           aws-region: ${{ steps.LoadDeployYml.outputs.Region }}
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
