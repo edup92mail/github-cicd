@@ -118,7 +118,7 @@ jobs:
       - name: Github DeployKeys Load
         id: LoadDeployKeys
         run: |
-          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}' | to_entries[]')
+          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}')
           COUNT=0
           ALL_KEYS=""
           for ENTRY in $DEPLOYKEYS; do
