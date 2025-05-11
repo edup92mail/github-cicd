@@ -140,7 +140,7 @@ jobs:
               exit 1
             fi
           done
-
+          echo $COUNT;
           echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "ALL_SSH_KEYS<<EOF" >> "$GITHUB_ENV"
           echo "$ALL_KEYS" >> "$GITHUB_ENV"
