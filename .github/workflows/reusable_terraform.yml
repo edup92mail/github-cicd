@@ -107,32 +107,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Github DeployKeys Load
         run: |
-          CONFIG_JSON='${{ needs.ExtractConfig.outputs.CiCdYml }}'
-          echo "$CONFIG_JSON" | jq . >/dev/null || { echo "❌ Output no es JSON válido"; exit 1; }
+          DEPLOY_KEY_B64=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys.Modules')
+          echo $DEPLOY_KEY_B64;
 
-          COUNT=0
-          VALID_KEYS=""
-
-          for name in $(echo "$CONFIG_JSON" | jq -r '.DeployKeys | keys[]?'); do
-            encoded=$(echo "$CONFIG_JSON" | jq -r --arg k "$name" '.DeployKeys[$k]')
-            [[ -z "$encoded" || "$encoded" == "null" ]] && continue
-
-            # Decodificamos todo el bloque
-            decoded=$(echo "$encoded" | base64 -d 2>/dev/null) || { echo "❌ Error de decodificación en $name"; exit 1; }
-
-            while read -r key; do
-              [[ -z "$key" ]] && continue
-              echo "$key" | ssh-keygen -l -f /dev/stdin &>/dev/null || { echo "🚫 Clave inválida en $name"; exit 1; }
-              echo "::add-mask::$key"
-              VALID_KEYS+="$key"$'\n'; ((COUNT++))
-            done <<< "$decoded"
-          done
-
-          [[ $COUNT -eq 0 ]] && { echo "❌ No DeployKeys found"; exit 1; }
-
-          echo -e "ALL_SSH_KEYS<<EOF\n$VALID_KEYS\nEOF" >> "$GITHUB_ENV"
-          echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "✅ $COUNT claves SSH válidas desde DeployKeys"
 
       - name: Load DeployKeys in Runner if exists
         if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
