@@ -107,7 +107,7 @@ jobs:
         uses: actions/checkout@v4
       - name: AWS KeyPairs Check
         run: |
-          CONFIG=$(echo '${{ fromJson(needs.ExtractConfig.outputs.ProductYml) }}')
+          CONFIG='${{ needs.ExtractConfig.outputs.ProductYml }}'
           mapfile -t PAIRS < <(jq -r '.Ec2.KeyPairs // {} | to_entries[] | "\(.key):::\(.value)"' <<< "$CONFIG")
 
           [[ "${#PAIRS[@]}" -eq 0 ]] && echo "❌ No se encontró ninguna KeyPair" && exit 1
