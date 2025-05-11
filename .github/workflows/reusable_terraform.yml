@@ -152,13 +152,19 @@ jobs:
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
-      - name: Append ./config/product.yml → vars.json
+      - name: Append ./config/env/product.yml → vars.json
         run: |
           product_file="./config/env/product.yml"
-          # Cuenta keys evitando el error “null has no keys”
-          added_count=$(yq -o=json "$product_file" | jq 'try keys | length catch 0')
-          # Fusiona con fallback a {} para que null no rompa jq
-          jq -s '.[0] * (.[1] // {})' vars.json <(yq -o=json "$product_file") > tmp.json && mv tmp.json vars.json
+          # Leer YAML como JSON
+          json=$(yq -o=json "$product_file")
+      
+          # Contar keys solo si es un objeto
+          added_count=$(printf '%s' "$json" | jq 'if type=="object" then keys | length else 0 end')
+      
+          # Fusionar con vars.json (si viene null, lo tratamos como {})
+          jq -s '.[0] * (.[1] // {})' vars.json <(printf '%s' "$json") > tmp.json \
+            && mv tmp.json vars.json
+      
           echo "✅ $added_count variables added from $product_file to vars.json"
       - name: Append Environment String > vars.json
         run: |
