@@ -22,7 +22,7 @@ on:
         
 jobs:
 
-  Checks:
+  ValidateConfig:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
@@ -39,16 +39,23 @@ jobs:
         environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
         required_files=(
           main.tf backend.tf providers.tf data.tf variables.tf outputs.tf
-          ./config/deploy.yml ./config/product.yml ./config/env/$environment.yml
+          ./config/cicd.yml ./config/product.yml ./config/env/$environment.yml
         )
         for file in "${required_files[@]}"; do
           [[ -f "$file" ]] || { echo "❌ Missing required file: $file"; exit 1; }
         done
         echo "✅ All required files are present"
-    - name: Validate minimal keys in product config
+    - name: Validate minimal keys in product.yml
       run: |
-        for key in Product Network Ec2; do
+        for key in Product Region Role BackendBucket Network Ec2; do
           grep -qE "^[[:space:]]*${key}:" ./config/product.yml \
+            && echo "✅ Key '$key' exists" \
+            || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
+        done
+    - name: Validate minimal keys in cicd.yml
+      run: |
+        for key in Region Role BackendBucket; do
+          grep -qE "^[[:space:]]*${key}:" ./config/cicd.yml \
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
         done
@@ -61,7 +68,113 @@ jobs:
           *) echo "❌ Invalid Environment: ${{ inputs.Environment }}"; exit 1 ;;
         esac
         echo "✅ Product '$product' is valid"
-        
+
+  ExtractConfig:
+    runs-on: ${{ inputs.Runner }}
+    permissions:
+      contents: read 
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ValidateConfig]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Load product.yml
+        id: ProductYml
+        run: |
+          CONTENT=$(yq e -o=json ./config/product.yml | jq -c .)
+          echo "Yml=$CONTENT" >> "$GITHUB_OUTPUT"
+      - name: Load cicd.yml
+        id: CiCdYml
+        run: |
+          CONTENT=$(yq e -o=json ./config/cicd.yml | jq -c .)
+          echo "Yml=$CONTENT" >> "$GITHUB_OUTPUT"
+    outputs:
+      ProductYml: ${{ steps.ProductYml.outputs.Yml }}
+      CiCdYml: ${{ needs.CiCdYml.outputs.CiCdYml.outputs.Yml }}
+
+  SShKeyJobs:
+    runs-on: ${{ inputs.Runner }}
+    permissions:
+      contents: read 
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ValidateConfig, ExtractConfig]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Aws KeyPairs Check
+        run: |
+          jq -r '.Ec2.KeyPairs // {} | to_entries[]' <<<"${{ needs.ExtractConfig.outputs.ProductYml.outputs.Yml }}" | while read -r entry; do
+            key=$(jq -r '.key' <<<"$entry")
+            val=$(jq -r '.value' <<<"$entry")
+            echo "🔍 $key"
+            echo "$val" | base64 -d | ssh-keygen -l -f /dev/stdin \
+              && echo "✔️ $key OK" || { echo "🚫 $key ERROR"; exit 1; }
+          done || { echo "❌ No se encontró ninguna KeyPair"; exit 1; }
+          echo "✅ Todas las KeyPairs válidas"
+      - name: Github DeployKeys Load
+        run: |
+          CONFIG='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
+          COUNT=0; VALID_KEYS=""
+          jq -r '.DeployKeys // {} | to_entries[] | "\(.key):::\(.value)"' <<< "$CONFIG" | while IFS=':::' read -r name block; do
+            while read -r line; do
+              [[ -z "$line" ]] && continue
+              key=$(echo "$line" | base64 -d 2>/dev/null) || { echo "❌ Decode error in $name"; exit 1; }
+              echo "$key" | ssh-keygen -l -f /dev/stdin &>/dev/null || { echo "🚫 Invalid key in $name"; exit 1; }
+              echo "::add-mask::$key"
+              VALID_KEYS+="$key"$'\n'; ((COUNT++))
+            done <<< "$block"
+          done
+          echo -e "ALL_SSH_KEYS<<EOF\n$VALID_KEYS\nEOF" >> "$GITHUB_ENV"
+          echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "✅ $COUNT claves SSH válidas desde DeployKeys.*"
+      - name: Load DeployKeys in Runner if exists
+        if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
+
+  CreateTfFiles:
+    runs-on: ${{ inputs.Runner }}
+    permissions:
+      contents: read 
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ValidateConfig, ExtractConfig, SShKeyJobs]
+    steps:
+      - name: Generate backend.tfbackend
+        run: |
+          CiCdYml='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
+          cat <<EOF > backend.tfbackend
+            bucket = "$(jq -r '.BackendBucket' <<< "$CiCdYml")"
+            key    = "$(jq -r '.Product' <<< "$CiCdYml")-${{ inputs.Environment }}.tfstate"
+            region = "$(jq -r '.Region' <<< "$CiCdYml")"
+          EOF
+      - name: Create empty vars.json
+        run: echo "{}" > vars.json
+      - name: Append inputs.ExtraVars > vars.json
+        run: |
+          Vars='${{ inputs.ExtraVars }}'
+          added_count=$(echo "$Vars" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$Vars") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
+      - name: Append Product object > vars.json
+        run: |
+          Vars='${{ needs.ExtractConfig.outputs.ProductYml.outputs.Yml }}'
+          added_count=$(echo "$Vars" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$Vars") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from iProductYml to vars.json"
+      - name: Append environment variables > vars.json
+        run: |
+          Vars="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
+          added_count=$(yq -o=json "$Vars" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$Vars") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from $env_file to vars.json"
+
   Terraform:
     runs-on: ${{ inputs.Runner }}
     permissions:
@@ -71,120 +184,23 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
-    needs: [Checks]
+    needs: [ValidateConfig, ExtractConfig, SShKeyJobs, CreateTfFiles]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Terraform Install
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Extract deploy variables
-        id: LoadDeployYml
+      - name: Extract AWS Config from CiCdYml
+        id: AwsVars
         run: |
-          f=./config/deploy.yml
-      
-          # extrae y valida valores simples
-          CiCdRoleArn=$(yq e -r '.DeployCiCdRoleArn' "$f")
-          BackendBucket=$(yq e -r '.BackendBucket'       "$f")
-          Region=$(yq e -r '.Region'                    "$f")
-          for var in CiCdRoleArn BackendBucket Region; do
-            val=${!var}
-            [[ -n $val && $val != "null" ]] || { echo "❌ $var not found in $f"; exit 1; }
-            echo "$var=$val" >> $GITHUB_OUTPUT
-          done
-      
-          # extrae y valida la key base64 (único campo Modules)
-          key=$(yq e -r '.DeployKeys.Modules' "$f")
-          [[ -n $key && $key != "null" ]] || { echo "❌ DeployKeys.Modules not found in $f"; exit 1; }
-      
-          # usa sintaxis de múltiples líneas para GITHUB_OUTPUT
-          echo "DeployKeys<<EOF" >> $GITHUB_OUTPUT
-          printf '%s\n' "$key" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      
-          echo "✅ All required deploy variables exist"
-
-      - name: KeyPairs Check
-        run: |
-          f=./config/product.yml; p='.Ec2.KeyPairs'
-          # Asegura que haya al menos una KeyPair
-          (( $(yq e "$p|length" $f) )) || { echo "❌ No se encontró ninguna KeyPair"; exit 1; }
-          # Para cada clave, decodifica base64 y pásala a ssh-keygen
-          for k in $(yq e "$p|keys|.[]" $f); do
-            echo "🔍 $k"
-            ssh-keygen -l -f <(yq e "$p.\"$k\"" $f | base64 -d) \
-              && echo "✔️ $k OK" || { echo "🚫 $k ERROR"; exit 1; }
-          done
-          echo "✅ Todas las KeyPairs válidas"
-      - name: Load DeployKeys from ./config/deploy.yml
-        id: LoadDeployKeys
-        run: |
-          # Cuenta cuántas DeployKeys hay
-          c=$(yq e '.DeployKeys|length' ./config/deploy.yml)
-          echo "ssh_key_count=$c" >> $GITHUB_OUTPUT
-
-          # Si hay al menos una, decodifica todo de golpe
-          if (( c > 0 )); then
-            data=$(yq e -r '.DeployKeys[]' ./config/deploy.yml | base64 -d)
-
-            # Enmascara y exporta
-            echo "::add-mask::$data"
-            {
-              echo "ALL_SSH_KEYS<<EOF"
-              printf '%s\n' "$data"
-              echo "EOF"
-            } >> $GITHUB_ENV
-
-            echo "✅ $c claves SSH cargadas"
-          else
-            echo "⚠️ No se encontraron DeployKeys"
-          fi
-      - name: Load DeployKeys in Runner if exists
-        if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
-      - name: Create backend Tfbackend
-        run: |
-          cat <<EOF > backend.tfbackend
-            bucket = "${{ steps.LoadDeployYml.outputs.BackendBucket }}"
-            key = "{{ steps.LoadDeployYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
-            region = "${{ steps.LoadDeployYml.outputs.Region }}"
-          EOF
-      - name: Create empty vars.json
-        run: echo "{}" > vars.json
-      - name: Append inputs.ExtraVars > vars.json
-        run: |
-          extra_vars='${{ inputs.ExtraVars }}'
-          added_count=$(echo "$extra_vars" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(echo "$extra_vars") > tmp.json && mv tmp.json vars.json
-          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
-
-      - name: Append Product object > vars.json
-        run: |
-          product_name=$(yq e -r '.Product' ./config/product.yml)
-          env="${{ inputs.Environment }}"
-          jq --arg name "$product_name" --arg env "$env" \
-            '.Product = { Name: $name, Environment: $env }' \
-            vars.json > tmp.json && mv tmp.json vars.json
-          echo "✅ Product object added: Name=$product_name, Environment=$env"
-      - name: Append environment variables > vars.json
-        run: |
-          env_file="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
-          added_count=$(yq -o=json "$env_file" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$env_file") > tmp.json && mv tmp.json vars.json
-          echo "✅ $added_count variables added from $env_file to vars.json"
-      - name: Append inputs.ExtraVars > vars.json
-        run: |
-          extra_vars='${{ inputs.ExtraVars }}'
-          added_count=$(echo "$extra_vars" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(echo "$extra_vars") > tmp.json && mv tmp.json vars.json
-          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
+          CONFIG='${{ needs.ExtractConfig.outputs.CiCdYml.outputs.Yml }}'
+          ROLE=$(jq -r '.Role' <<< "$CONFIG")
+          REGION=$(jq -r '.Region' <<< "$CONFIG")
+          echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
+          echo "REGION=$REGION" >> $GITHUB_OUTPUT
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ steps.LoadDeployYml.outputs.CiCdRoleArn }}
-          aws-region: ${{ steps.LoadDeployYml.outputs.Region }}
+          role-to-assume: ${{ steps.AwsVars.outputs.ROLE }}
+          aws-region: ${{ steps.AwsVars.outputs.REGION }}
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
@@ -199,7 +215,7 @@ jobs:
         with:
           secret: ${{ github.TOKEN }}
           approvers: ${{ github.actor }}
-          issue-title: "Terraform Apply to Product ${{ steps.LoadProductYml.outputs.Product }} in Env ${{ inputs.Environment }}"
+          issue-title: "Terraform Apply to Product ${{ steps.ProductYml.outputs.Product }} in Env ${{ inputs.Environment }}"
           issue-body: |
             Plan output:
 
