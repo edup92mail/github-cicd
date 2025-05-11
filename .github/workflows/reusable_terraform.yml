@@ -123,6 +123,7 @@ jobs:
             fi
           done
 
+          echo $COUNT;
           echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "ALL_SSH_KEYS<<EOF" >> "$GITHUB_OUTPUT"
           echo "$ALL_KEYS" >> "$GITHUB_OUTPUT"
