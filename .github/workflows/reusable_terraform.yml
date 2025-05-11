@@ -107,8 +107,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Github DeployKeys Load
         run: |
-          DEPLOY_KEY_B64=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys.Modules')
-          echo $DEPLOY_KEY_B64;
+          DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys')
+          echo $DEPLOYKEYS;
+
 
 
       - name: Load DeployKeys in Runner if exists
