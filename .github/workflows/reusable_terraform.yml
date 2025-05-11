@@ -146,9 +146,9 @@ jobs:
       - name: Create backend Tfbackend
         run: |
           cat <<EOF > backend.tfbackend
-            bucket = "${{ steps.LoadAwsYml.outputs.BackendBucket }}"
-            key = "{{ steps.LoadAwsYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
-            region = "${{ steps.LoadAwsYml.outputs.Region }}"
+            bucket = "${{ steps.LoadDeployYml.outputs.BackendBucket }}"
+            key = "{{ steps.LoadDeployYml.outputs.Product }}-${{ inputs.Environment}}.tfstate"
+            region = "${{ steps.LoadDeployYml.outputs.Region }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
@@ -188,7 +188,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ steps.LoadAwsYml.outputs.CiCdRoleArn }}
-          aws-region: ${{ steps.LoadAwsYml.outputs.Region }}
+          aws-region: ${{ steps.LoadDeployYml.outputs.Region }}
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
