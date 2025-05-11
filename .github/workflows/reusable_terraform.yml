@@ -156,26 +156,21 @@ jobs:
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
-      - name: Append ./config/env/product.yml → vars.json
+      - name: Append inputs.ExtraVars > vars.json
         run: |
-          product_file="./config/env/product.yml"
-          # Leer YAML como JSON
-          json=$(yq -o=json "$product_file")
-      
-          # Contar keys solo si es un objeto
-          added_count=$(printf '%s' "$json" | jq 'if type=="object" then keys | length else 0 end')
-      
-          # Fusionar con vars.json (si viene null, lo tratamos como {})
-          jq -s '.[0] * (.[1] // {})' vars.json <(printf '%s' "$json") > tmp.json \
-            && mv tmp.json vars.json
-      
-          echo "✅ $added_count variables added from $product_file to vars.json"
-      - name: Append Environment String > vars.json
+          extra_vars='${{ inputs.ExtraVars }}'
+          added_count=$(echo "$extra_vars" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$extra_vars") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
+
+      - name: Append Product object > vars.json
         run: |
-          jq --arg env "${{ inputs.Environment }}" \
-            '.Environment = $env' \
-            vars.json > vars.json.tmp && mv vars.json.tmp vars.json
-          echo "✅ Environment \"${{ inputs.Environment }}\" added to vars.json"
+          product_name=$(yq e -r '.Product' ./config/product.yml)
+          env="${{ inputs.Environment }}"
+          jq --arg name "$product_name" --arg env "$env" \
+            '.Product = { Name: $name, Environment: $env }' \
+            vars.json > tmp.json && mv tmp.json vars.json
+          echo "✅ Product object added: Name=$product_name, Environment=$env"
       - name: Append environment variables > vars.json
         run: |
           env_file="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
