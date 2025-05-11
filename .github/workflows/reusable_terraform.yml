@@ -109,7 +109,26 @@ jobs:
         run: |
           DEPLOYKEYS=$(echo '${{ needs.ExtractConfig.outputs.CiCdYml }}' | jq -r '.DeployKeys | to_entries[] | @base64')
           echo $DEPLOYKEYS;
+          
+          for ENTRY in $DEPLOYKEYS; do
+            _jq() {
+              echo "$ENTRY" | base64 --decode | jq -r "$1"
+            }
+            KEY_NAME=$(_jq '.key')
+            BASE64_KEY=$(_jq '.value')
 
+            echo "🔍 Validating key: $KEY_NAME"
+
+            # Decode and validate the key
+            echo "$BASE64_KEY" | base64 --decode > "/tmp/${KEY_NAME}.key" 2>/dev/null
+
+            if grep -q "PRIVATE KEY" "/tmp/${KEY_NAME}.key"; then
+              echo "✅ $KEY_NAME is a valid private key"
+            else
+              echo "❌ $KEY_NAME is NOT a valid private key"
+              exit 1
+            fi
+          done
           
 
 
