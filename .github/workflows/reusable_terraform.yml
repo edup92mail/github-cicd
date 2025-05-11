@@ -107,25 +107,46 @@ jobs:
         uses: actions/checkout@v4
       - name: Github DeployKeys Load
         run: |
-          CONFIG='${{ needs.ExtractConfig.outputs.CiCdYml }}'
-          COUNT=0; VALID_KEYS=""
+          # 1) Cargamos el JSON interpolado
+          CONFIG="${{ needs.ExtractConfig.outputs.CiCdYml }}"
 
-          jq -r '.DeployKeys // {} | to_entries[] | "\(.key):::\(.value)"' <<< "$CONFIG" |
-          while IFS=':::' read -r name encoded; do
+          COUNT=0
+          VALID_KEYS=""
+
+          # 2) Iteramos por cada keyset dentro de DeployKeys
+          for name in $(echo "$CONFIG" | jq -r '.DeployKeys | keys[]'); do
+            encoded=$(echo "$CONFIG" | jq -r --arg k "$name" '.DeployKeys[$k]')
+            # Saltamos si no existe o es null
             [[ -z "$encoded" || "$encoded" == "null" ]] && continue
-            decoded=$(echo "$encoded" | base64 -d 2>/dev/null) || { echo "❌ Decode error in $name"; exit 1; }
 
-            while read -r key; do
+            # 3) Decodificamos todo el bloque de golpe y lo leemos línea a línea
+            mapfile -t lines < <(printf '%s' "$encoded" | base64 -d 2>/dev/null)
+
+            for key in "${lines[@]}"; do
               [[ -z "$key" ]] && continue
-              echo "$key" | ssh-keygen -l -f /dev/stdin &>/dev/null || { echo "🚫 Invalid key in $name"; exit 1; }
-              echo "::add-mask::$key"
-              VALID_KEYS+="$key"$'\n'; ((COUNT++))
-            done <<< "$decoded"
+              # 4) Validamos con ssh-keygen
+              echo "$key" | ssh-keygen -l -f /dev/stdin >/dev/null \
+                && echo "::add-mask::$key" \
+                || { echo "🚫 Invalid key in $name"; exit 1; }
+
+              VALID_KEYS+="$key"$'\n'
+              ((COUNT++))
+            done
           done
 
-          echo -e "ALL_SSH_KEYS<<EOF\n$VALID_KEYS\nEOF" >> "$GITHUB_ENV"
+          # 5) Fallback si no procesamos ninguna clave
+          [[ $COUNT -eq 0 ]] && { echo "❌ No DeployKeys found"; exit 1; }
+
+          # 6) Exportamos al entorno y al output
+          {
+            echo "ALL_SSH_KEYS<<EOF"
+            printf '%s\n' "$VALID_KEYS"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
           echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "✅ $COUNT claves SSH válidas desde DeployKeys.*"
+          echo "✅ $COUNT claves SSH válidas desde DeployKeys"
+
       - name: Load DeployKeys in Runner if exists
         if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
         uses: webfactory/ssh-agent@v0.9.0
