@@ -38,7 +38,7 @@ jobs:
       run: |
         environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
         required_files=(
-          main.tf backend.tf providers.tf data.tf variables.tf outputs.tf
+          main.tf backend.tf providers.tf data.tf variables.tf outputs.tf variables_product.tf variables_env.tf
           ./config/cicd.yml ./config/product.yml ./config/env/$environment.yml
         )
         for file in "${required_files[@]}"; do
@@ -47,21 +47,21 @@ jobs:
         echo "✅ All required files are present"
     - name: Validate minimal keys in product.yml
       run: |
-        for key in Network Ec2; do
+        for key in Product Network Ec2; do
           grep -qE "^[[:space:]]*${key}:" ./config/product.yml \
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
         done
     - name: Validate minimal keys in cicd.yml
       run: |
-        for key in Product Region Role BackendBucket DeployKeys; do
+        for key in Region Role BackendBucket DeployKeys; do
           grep -qE "^[[:space:]]*${key}:" ./config/cicd.yml \
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
         done
     - name: Validate Product and Environment format
       run: |
-        product=$(yq e '.Product' ./config/cicd.yml)
+        product=$(yq e '.Product' ./config/product.yml)
         [[ "$product" =~ ^[A-Z] ]] || { echo "❌ Product must start with a capital letter (Found: '$product')"; exit 1; }
         case "${{ inputs.Environment }}" in
           Prod|Dev) echo "✅ Environment '${{ inputs.Environment }}' is valid" ;;
@@ -157,7 +157,7 @@ jobs:
         run: |
           cat <<EOF > backend.tfbackend
             bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-            key    = "${{ needs.ExtractConfig.outputs.Product }}"
+            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Environment) }}"
             region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
