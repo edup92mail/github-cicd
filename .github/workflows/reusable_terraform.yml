@@ -22,7 +22,7 @@ on:
         
 jobs:
 
-  ValidateConfig:
+  ParseConfig:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
@@ -76,7 +76,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig]
+    needs: [ParseConfig]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -104,53 +104,40 @@ jobs:
       CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
       CiCdDeployKeys: ${{ steps.CiCdYml.outputs.DEPLOYKEYS }}
 
-  SShKeyJobs:
-    runs-on: ${{ inputs.Runner }}
-    permissions:
-      contents: read 
-    defaults:
-      run:
-        working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig, ExtractConfig]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Validate and load SSH deploy keys
-        id: LoadDeployKeys
-        run: |
-          DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
-
-          COUNT=0
-          ALL_KEYS=""
-
-          for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
-            NAME=$(echo "$ENTRY" | jq -r '.key')
-            KEY_B64=$(echo "$ENTRY" | jq -r '.value')
-
-            echo "🔍 Validating key: $NAME"
-
-            KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
-
-            if echo "$KEY" | grep -q "PRIVATE KEY"; then
-              echo "✅ $NAME is valid"
-              ALL_KEYS="${ALL_KEYS}${KEY}"$'\n\n'
-              COUNT=$((COUNT + 1))
-            else
-              echo "❌ $NAME is invalid"
-              exit 1
-            fi
-          done
-
-          echo "🔢 Found $COUNT valid keys"
-          echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
-          echo "ALL_SSH_KEYS<<EOF" >> "$GITHUB_ENV"
-          echo "$ALL_KEYS" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
-      - name: Load DeployKeys in Runner if exists
-        if: steps.LoadDeployKeys.outputs.ssh_key_count != '0'
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
+SShKeyJobs:
+  runs-on: ${{ inputs.Runner }}
+  permissions:
+    contents: read
+  defaults:
+    run:
+      working-directory: ${{ inputs.Path }}
+  needs: [ValidateConfig, ExtractConfig]
+  steps:
+    - name: Validate and load SSH deploy keys
+      id: LoadDeployKeys
+      run: |
+        DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
+        mkdir -p deploykeys
+        for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
+          NAME=$(echo "$ENTRY" | jq -r '.key')
+          KEY_B64=$(echo "$ENTRY" | jq -r '.value')
+          echo "🔍 Validating key: $NAME"
+          KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
+          if echo "$KEY" | grep -q "PRIVATE KEY"; then
+            echo "✅ $NAME is valid"
+            echo "$KEY" > "deploykeys/${NAME}.pem"
+            chmod 600 "deploykeys/${NAME}.pem"
+          else
+            echo "❌ $NAME is invalid"
+            exit 1
+          fi
+        done
+        echo "🔢 Found $COUNT valid keys"
+    - name: Upload SSH keys
+      uses: actions/upload-artifact@v4
+      with:
+        name: DeployKeys
+        path: deploykeys/
 
   CreateTfFiles:
     runs-on: ${{ inputs.Runner }}
@@ -159,7 +146,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig, ExtractConfig, SShKeyJobs]
+    needs: [ParseConfig, ExtractConfig, ParseSShKey]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -207,7 +194,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig, ExtractConfig, SShKeyJobs, CreateTfFiles]
+    needs: [ParseConfig, ExtractConfig, ParseSShKey, CreateTfFiles]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -222,8 +209,17 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: TfFiles
-      - name: test
-        run: cat backend.tfbackend
+      - name: Download DeployKeys
+        uses: actions/download-artifact@v4
+        with:
+          name: DeployKeys
+          path: ./deploykeys
+      - name: Load all SSH keys into agent
+        if: always() && hashFiles('deploykeys/*.pem') != ''
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            $(for f in deploykeys/*.pem; do cat "$f"; echo; echo; done)
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
