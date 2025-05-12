@@ -172,19 +172,19 @@ jobs:
         run: echo "{}" > vars.json
       - name: Append inputs.ExtraVars > vars.json
         run: |
-          Vars='${{ inputs.ExtraVars }}'
-          added_count=$(echo "$Vars" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(echo "$Vars") > tmp.json && mv tmp.json vars.json
+          VARS='${{ inputs.ExtraVars }}'
+          added_count=$(echo "$VARS" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$VARS") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
       - name: Append Product object > vars.json
         run: |
-          Vars='${{ needs.ExtractConfig.outputs.ProductYml.outputs.Yml }}'
-          added_count=$(echo "$Vars" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(echo "$Vars") > tmp.json && mv tmp.json vars.json
+          VARS='${{ needs.ExtractConfig.outputs.ProductYml }}'
+          added_count=$(echo "$VARS" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$VARS") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from iProductYml to vars.json"
       - name: Append environment variables > vars.json
         run: |
-          Vars="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
-          added_count=$(yq -o=json "$Vars" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$Vars") > tmp.json && mv tmp.json vars.json
+          VARS="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
+          added_count=$(yq -o=json "$VARS" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$VARS") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from $env_file to vars.json"
