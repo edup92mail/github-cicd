@@ -38,7 +38,7 @@ jobs:
       run: |
         environment=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
         required_files=(
-          main.tf backend.tf providers.tf data.tf variables.tf outputs.tf variables_product.tf variables_env.tf
+          main.tf config.tf outputs.tf variables_product.tf variables_env.tf
           ./config/cicd.yml ./config/product.yml ./config/env/$environment.yml
         )
         for file in "${required_files[@]}"; do
