@@ -104,7 +104,7 @@ jobs:
       CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
       CiCdDeployKeys: ${{ steps.CiCdYml.outputs.DEPLOYKEYS }}
 
-SShKeyJobs:
+ParseSShKey:
   runs-on: ${{ inputs.Runner }}
   permissions:
     contents: read
