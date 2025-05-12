@@ -159,12 +159,9 @@ jobs:
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
-      - name: Append inputs.ExtraVars > vars.json
+      - name: Append Environment String > vars.json
         run: |
-          VARS='${{ inputs.ExtraVars }}'
-          added_count=$(echo "$VARS" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(echo "$VARS") > tmp.json && mv tmp.json vars.json
-          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
+          jq --arg env "${{ inputs.Environment }}" '. + {Environment: $env}' vars.json > tmp.json && mv tmp.json vars.json
       - name: Append Product object > vars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.ProductYml }}'
@@ -177,6 +174,12 @@ jobs:
           added_count=$(yq -o=json "$VARS" | jq 'keys | length')
           jq -s '.[0] * .[1]' vars.json <(yq -o=json "$VARS") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from $env_file to vars.json"
+      - name: Append inputs.ExtraVars > vars.json
+        run: |
+          VARS='${{ inputs.ExtraVars }}'
+          added_count=$(echo "$VARS" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$VARS") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from inputs.ExtraVars to vars.json"
       - name: Upload Terraform config files
         uses: actions/upload-artifact@v4
         with:
