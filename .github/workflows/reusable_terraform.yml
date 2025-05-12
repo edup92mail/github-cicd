@@ -155,19 +155,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Generate backend.tfbackend
         run: |
-          bucket="${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-          region="${{ needs.ExtractConfig.outputs.CiCdRegion }}"
-          key="${{ needs.ExtractConfig.outputs.Product }}${{ inputs.Environment }}.tfstate"
           cat <<EOF > backend.tfbackend
-          bucket = "$bucket"
-          key    = "$key"
-          region = "$region"
+            bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
+            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Environment) }}"
+            region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
       - name: Append Product String > vars.json
         run: |
-          jq --arg product "${{ needs.ExtractConfig.outputs.Product }" '. + {Product: $product}' vars.json > tmp.json && mv tmp.json vars.json
+          jq --arg product "${{ needs.ExtractConfig.outputs.Product }}" '. + {Product: $product}' vars.json > tmp.json && mv tmp.json vars.json
       - name: Append Environment String > vars.json
         run: |
           jq --arg environment "${{ inputs.Environment }}" '. + {Environment: $environment}' vars.json > tmp.json && mv tmp.json vars.json
