@@ -104,40 +104,40 @@ jobs:
       CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
       CiCdDeployKeys: ${{ steps.CiCdYml.outputs.DEPLOYKEYS }}
 
-ParseSShKey:
-  runs-on: ${{ inputs.Runner }}
-  permissions:
-    contents: read
-  defaults:
-    run:
-      working-directory: ${{ inputs.Path }}
-  needs: [ValidateConfig, ExtractConfig]
-  steps:
-    - name: Validate and load SSH deploy keys
-      id: LoadDeployKeys
-      run: |
-        DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
-        mkdir -p deploykeys
-        for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
-          NAME=$(echo "$ENTRY" | jq -r '.key')
-          KEY_B64=$(echo "$ENTRY" | jq -r '.value')
-          echo "🔍 Validating key: $NAME"
-          KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
-          if echo "$KEY" | grep -q "PRIVATE KEY"; then
-            echo "✅ $NAME is valid"
-            echo "$KEY" > "deploykeys/${NAME}.pem"
-            chmod 600 "deploykeys/${NAME}.pem"
-          else
-            echo "❌ $NAME is invalid"
-            exit 1
-          fi
-        done
-        echo "🔢 Found $COUNT valid keys"
-    - name: Upload SSH keys
-      uses: actions/upload-artifact@v4
-      with:
-        name: DeployKeys
-        path: deploykeys/
+  ParseSShKey:
+    runs-on: ${{ inputs.Runner }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ValidateConfig, ExtractConfig]
+    steps:
+      - name: Validate and load SSH deploy keys
+        id: LoadDeployKeys
+        run: |
+          DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
+          mkdir -p deploykeys
+          for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
+            NAME=$(echo "$ENTRY" | jq -r '.key')
+            KEY_B64=$(echo "$ENTRY" | jq -r '.value')
+            echo "🔍 Validating key: $NAME"
+            KEY=$(echo "$KEY_B64" | base64 -d 2>/dev/null || true)
+            if echo "$KEY" | grep -q "PRIVATE KEY"; then
+              echo "✅ $NAME is valid"
+              echo "$KEY" > "deploykeys/${NAME}.pem"
+              chmod 600 "deploykeys/${NAME}.pem"
+            else
+              echo "❌ $NAME is invalid"
+              exit 1
+            fi
+          done
+          echo "🔢 Found $COUNT valid keys"
+      - name: Upload SSH keys
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeployKeys
+          path: deploykeys/
 
   CreateTfFiles:
     runs-on: ${{ inputs.Runner }}
