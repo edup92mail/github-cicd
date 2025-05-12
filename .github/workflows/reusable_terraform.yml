@@ -185,7 +185,24 @@ jobs:
       - name: Append environment variables > vars.json
         run: |
           VARS="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
+
+          echo "🔍 Loading environment vars from: $VARS"
+
+          if [[ ! -s "$VARS" ]]; then
+            echo "⚠️ File $VARS is empty or does not exist"
+            exit 1
+          fi
+
           VARS_JSON=$(yq -o=json "$VARS")
+
+          if [[ "$VARS_JSON" == "null" ]]; then
+            echo "⚠️ Parsed $VARS is null. Is the YAML empty or incorrect?"
+            exit 1
+          fi
+
           added_count=$(echo "$VARS_JSON" | jq 'keys | length')
+
           jq -s '.[0] * .[1]' vars.json <(echo "$VARS_JSON") > tmp.json && mv tmp.json vars.json
+
           echo "✅ $added_count variables added from $VARS to vars.json"
+
