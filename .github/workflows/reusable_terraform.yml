@@ -157,7 +157,7 @@ jobs:
         run: |
           cat <<EOF > backend.tfbackend
             bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Environment) }}"
+            key    = "${{ needs.ExtractConfig.outputs.Product }}"
             region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
