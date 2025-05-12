@@ -61,7 +61,7 @@ jobs:
         done
     - name: Validate Product and Environment format
       run: |
-        product=$(yq e '.Product' ./config/product.yml)
+        product=$(yq e '.Product' ./config/cicd.yml)
         [[ "$product" =~ ^[A-Z] ]] || { echo "❌ Product must start with a capital letter (Found: '$product')"; exit 1; }
         case "${{ inputs.Environment }}" in
           Prod|Dev) echo "✅ Environment '${{ inputs.Environment }}' is valid" ;;
