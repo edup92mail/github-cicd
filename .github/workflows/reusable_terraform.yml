@@ -123,7 +123,7 @@ jobs:
           COUNT=0
           ALL_KEYS=""
 
-          echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]' | while read -r ENTRY; do
+          for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
             NAME=$(echo "$ENTRY" | jq -r '.key')
             KEY_B64=$(echo "$ENTRY" | jq -r '.value')
 
@@ -140,7 +140,8 @@ jobs:
               exit 1
             fi
           done
-          echo $COUNT;
+
+          echo "🔢 Found $COUNT valid keys"
           echo "ssh_key_count=$COUNT" >> "$GITHUB_OUTPUT"
           echo "ALL_SSH_KEYS<<EOF" >> "$GITHUB_ENV"
           echo "$ALL_KEYS" >> "$GITHUB_ENV"
