@@ -89,16 +89,19 @@ jobs:
         id: CiCdYml
         run: |
           CONTENT=$(yq e -o=json ./config/cicd.yml)
+          PRODUCT=$(echo "$CONTENT" | jq -r '.Product')
           REGION=$(echo "$CONTENT" | jq -r '.Region')
           ROLE=$(echo "$CONTENT" | jq -r '.Role')
           BACKENDBUCKET=$(echo "$CONTENT" | jq -r '.BackendBucket')
           DEPLOYKEYS=$(echo "$CONTENT" | jq -c '.DeployKeys')
+          echo "PRODUCT=$PRODUCT" >> $GITHUB_OUTPUT
           echo "REGION=$REGION" >> $GITHUB_OUTPUT
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
           echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
     outputs:
       ProductYml: ${{ steps.ProductYml.outputs.Yml }}
+      Product: ${{ steps.CiCdYml.outputs.PRODUCT }}
       CiCdRegion: ${{ steps.CiCdYml.outputs.REGION }}
       CiCdRole: ${{ steps.CiCdYml.outputs.ROLE }}
       CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
@@ -154,15 +157,18 @@ jobs:
         run: |
           cat <<EOF > backend.tfbackend
             bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-            key    = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}-${{ inputs.Environment }}.tfstate"
+            key    = "${{ needs.ExtractConfig.outputs.Product }${{ inputs.Environment }}.tfstate"
             region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
+      - name: Append Product String > vars.json
+        run: |
+          jq --arg product "${{ needs.ExtractConfig.outputs.Product }" '. + {Product: $product}' vars.json > tmp.json && mv tmp.json vars.json
       - name: Append Environment String > vars.json
         run: |
-          jq --arg env "${{ inputs.Environment }}" '. + {Environment: $env}' vars.json > tmp.json && mv tmp.json vars.json
-      - name: Append Product object > vars.json
+          jq --arg environment "${{ inputs.Environment }}" '. + {Environment: $environment}' vars.json > tmp.json && mv tmp.json vars.json
+      - name: Append Product Yml > vars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.ProductYml }}'
           added_count=$(echo "$VARS" | jq 'keys | length')
