@@ -155,10 +155,15 @@ jobs:
         uses: actions/checkout@v4
       - name: Generate backend.tfbackend
         run: |
+          product="${{ needs.ExtractConfig.outputs.Product }}"
+          environment="${{ inputs.Environment }}"
+          bucket="${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
+          region="${{ needs.ExtractConfig.outputs.CiCdRegion }}"
+          key="${product}${environment}.tfstate"
           cat <<EOF > backend.tfbackend
-            bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Environment) }}"
-            region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
+          bucket = "$bucket"
+          key    = "$key"
+          region = "$region"
           EOF
       - name: Create empty vars.json
         run: echo "{}" > vars.json
