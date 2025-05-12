@@ -185,8 +185,7 @@ jobs:
       - name: Append environment variables > vars.json
         run: |
           VARS="./config/env/$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]').yml"
-
-          echo $VARS;
-          added_count=$(yq -o=json "$VARS" | jq 'keys | length')
-          jq -s '.[0] * .[1]' vars.json <(yq -o=json "$VARS") > tmp.json && mv tmp.json vars.json
-          echo "✅ $added_count variables added from $env_file to vars.json"
+          VARS_JSON=$(yq -o=json "$VARS")
+          added_count=$(echo "$VARS_JSON" | jq 'keys | length')
+          jq -s '.[0] * .[1]' vars.json <(echo "$VARS_JSON") > tmp.json && mv tmp.json vars.json
+          echo "✅ $added_count variables added from $VARS to vars.json"
