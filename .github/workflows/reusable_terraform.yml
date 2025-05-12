@@ -214,12 +214,24 @@ jobs:
         with:
           name: DeployKeys
           path: ./deploykeys
-      - name: Load all SSH keys into agent
-        if: always() && hashFiles('deploykeys/*.pem') != ''
+      - name: Read all private keys into env var
+        id: read_ssh_keys
+        run: |
+          KEY_DATA=""
+          for f in deploykeys/*.pem; do
+            [ -f "$f" ] || continue
+            KEY=$(cat "$f")
+            KEY_DATA="${KEY_DATA}${KEY}"$'\n\n'
+          done
+
+          echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
+          echo "$KEY_DATA" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Load SSH keys into agent
+        if: env.ALL_SSH_KEYS != ''
         uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: |
-            $(for f in deploykeys/*.pem; do cat "$f"; echo; echo; done)
+          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
