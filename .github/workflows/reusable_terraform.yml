@@ -111,7 +111,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.Path }}
-    needs: [ValidateConfig, ExtractConfig]
+    needs: [ParseConfig, ExtractConfig]
     steps:
       - name: Validate and load SSH deploy keys
         id: LoadDeployKeys
