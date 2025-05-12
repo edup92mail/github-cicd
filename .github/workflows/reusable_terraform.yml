@@ -211,6 +211,8 @@ jobs:
         with:
           role-to-assume: ${{ needs.ExtractConfig.outputs.CiCdRole }}
           aws-region: ${{ needs.ExtractConfig.outputs.CiCdRegion }}
+      - name: test
+        run: cat backend.tfbackend
       - name: Terraform Init
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
