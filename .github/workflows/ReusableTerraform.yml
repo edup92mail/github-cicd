@@ -196,9 +196,6 @@ jobs:
       - name: Append Stage String > vars.json
         run: |
           jq --arg stage "${{ inputs.Stage }}" '. + {Stage: $stage}' vars.json > tmp.json && mv tmp.json vars.json
-      - name: Append Environment String > vars.json
-        run: |
-          jq --arg environment "${{ inputs.Environment }}" '. + {Environment: $environment}' vars.json > tmp.json && mv tmp.json vars.json
       - name: Append Product Yml > vars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.ProductYml }}'
