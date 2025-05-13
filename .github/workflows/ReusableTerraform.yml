@@ -9,6 +9,9 @@ on:
         required: false
         type: string
         default: "ubuntu-latest"
+      Stage:
+        required: true
+        type: string
       Environment:
         required: true
         type: string
@@ -59,7 +62,7 @@ jobs:
             && echo "✅ Key '$key' exists" \
             || { echo "❌ ERROR: Missing key '$key'"; exit 1; }
         done
-    - name: Validate Product and Environment format
+    - name: Validate Product, Stage and Environment format
       run: |
         product=$(yq e '.Product' ./config/product.yml)
         [[ "$product" =~ ^[A-Z] ]] || { echo "❌ Product must start with a capital letter (Found: '$product')"; exit 1; }
@@ -67,8 +70,13 @@ jobs:
           Prod|Dev) echo "✅ Environment '${{ inputs.Environment }}' is valid" ;;
           *) echo "❌ Invalid Environment: ${{ inputs.Environment }}"; exit 1 ;;
         esac
+        if [[ ! "${{ inputs.Stage }}" =~ ^[A-Z] ]]; then
+          echo "❌ Invalid Stage: ${{ inputs.Stage }}"
+          exit 1
+        fi
         echo "✅ Product '$product' is valid"
-
+        echo "✅ Environment '${{ inputs.Environment }}' is valid"
+        echo "✅ Stage '${{ inputs.Stage }}' is valid"
   ExtractConfig:
     runs-on: ${{ inputs.Runner }}
     permissions:
@@ -116,12 +124,12 @@ jobs:
         working-directory: ${{ inputs.Path }}
     needs: [ParseConfig, ExtractConfig]
     steps:
-      - name: Validate and load SSH deploy keys
+      - name: Validate Deploy Keys
         id: LoadDeployKeys
         run: |
-          DEPLOYKEYS_JSON='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
+          DEPLOYKEYS='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
           mkdir -p deploykeys
-          for ENTRY in $(echo "$DEPLOYKEYS_JSON" | jq -c 'to_entries[]'); do
+          for ENTRY in $(echo "$DEPLOYKEYS" | jq -c 'to_entries[]'); do
             NAME=$(echo "$ENTRY" | jq -r '.key')
             KEY_B64=$(echo "$ENTRY" | jq -r '.value')
             echo "🔍 Validating key: $NAME"
@@ -136,12 +144,27 @@ jobs:
             fi
           done
           echo "🔢 Found $COUNT valid keys"
-      - name: Upload SSH keys
+      - name: Upload Deploy Keys
         uses: actions/upload-artifact@v4
         with:
           name: DeployKeys
           path: deploykeys/
-
+      - name: Validate Keypairs
+        run: |
+          KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.ProductYml }}' | jq -r '.Ec2.KeyPairs | keys[]')
+          for KEY in $KEYPAIRS; do
+            echo "🔑 Validando clave: $KEY"
+            BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.ProductYml }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
+            echo "$BASE64_KEY" | base64 -d > decoded_key 2>/dev/null
+            if ssh-keygen -l -f decoded_key >/dev/null 2>&1; then
+              echo "✅ $KEY is valid"
+            else
+              echo "❌ $KEY is invalid"
+              exit 1
+            fi
+          done
+          rm -f decoded_key
+          
   CreateTfFiles:
     runs-on: ${{ inputs.Runner }}
     permissions:
@@ -157,7 +180,7 @@ jobs:
         run: |
           cat <<EOF > backend.tfbackend
             bucket = "${{ needs.ExtractConfig.outputs.CiCdBackendBucket }}"
-            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Environment) }}"
+            key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Product, inputs.Stage) }}"
             region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
       - name: Create empty vars.json
@@ -165,6 +188,9 @@ jobs:
       - name: Append Product String > vars.json
         run: |
           jq --arg product "${{ needs.ExtractConfig.outputs.Product }}" '. + {Product: $product}' vars.json > tmp.json && mv tmp.json vars.json
+      - name: Append Stage String > vars.json
+        run: |
+          jq --arg stage "${{ inputs.Stage }}" '. + {Stage: $stage}' vars.json > tmp.json && mv tmp.json vars.json
       - name: Append Environment String > vars.json
         run: |
           jq --arg environment "${{ inputs.Environment }}" '. + {Environment: $environment}' vars.json > tmp.json && mv tmp.json vars.json
@@ -232,7 +258,6 @@ jobs:
             KEY=$(cat "$f")
             KEY_DATA="${KEY_DATA}${KEY}"$'\n\n'
           done
-
           echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
           echo "$KEY_DATA" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
