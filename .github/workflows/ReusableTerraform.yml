@@ -272,6 +272,7 @@ jobs:
         run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Validate
         run: terraform validate
+        timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
         run: terraform plan -var-file=vars.json -no-color
