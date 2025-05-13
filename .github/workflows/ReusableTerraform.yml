@@ -131,8 +131,9 @@ jobs:
     steps:
       - name: Validate Deploy Keys
         id: LoadDeployKeys
+        env:
+          DEPLOYKEYS: ${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}
         run: |
-          DEPLOYKEYS="${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}"
           echo "::add-mask::$DEPLOYKEYS"
           mkdir -p deploykeys
           for ENTRY in $(echo "$DEPLOYKEYS" | jq -c 'to_entries[]'); do
