@@ -94,23 +94,27 @@ jobs:
         run: |
           CONTENT=$(yq e -o=json ./config/product.yml | jq -c .)
           echo "Yml=$CONTENT" >> $GITHUB_OUTPUT
+      - name: Load product
+        id: Product
+        run: |
+          CONTENT=$(yq e -o=json ./config/product.yml | jq -c .)
+          PRODUCT=$(echo "$CONTENT" | jq -r '.Product')
+          echo "PRODUCT=$PRODUCT" >> $GITHUB_OUTPUT
       - name: Load cicd.yml
         id: CiCdYml
         run: |
           CONTENT=$(yq e -o=json ./config/cicd.yml)
-          PRODUCT=$(echo "$CONTENT" | jq -r '.Product')
           REGION=$(echo "$CONTENT" | jq -r '.Region')
           ROLE=$(echo "$CONTENT" | jq -r '.Role')
           BACKENDBUCKET=$(echo "$CONTENT" | jq -r '.BackendBucket')
           DEPLOYKEYS=$(echo "$CONTENT" | jq -c '.DeployKeys')
-          echo "PRODUCT=$PRODUCT" >> $GITHUB_OUTPUT
           echo "REGION=$REGION" >> $GITHUB_OUTPUT
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
           echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
     outputs:
       ProductYml: ${{ steps.ProductYml.outputs.Yml }}
-      Product: ${{ steps.CiCdYml.outputs.PRODUCT }}
+      Product: ${{ steps.Product.outputs.PRODUCT }}
       CiCdRegion: ${{ steps.CiCdYml.outputs.REGION }}
       CiCdRole: ${{ steps.CiCdYml.outputs.ROLE }}
       CiCdBackendBucket: ${{ steps.CiCdYml.outputs.BACKENDBUCKET }}
