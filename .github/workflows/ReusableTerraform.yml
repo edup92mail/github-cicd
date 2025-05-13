@@ -221,7 +221,7 @@ jobs:
             backend.tfbackend
             vars.json
 
-  Terraform:
+  Apply:
     runs-on: ${{ inputs.Runner }}
     permissions:
       id-token: write
