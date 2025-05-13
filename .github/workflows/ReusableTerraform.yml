@@ -133,6 +133,7 @@ jobs:
         id: LoadDeployKeys
         run: |
           DEPLOYKEYS='${{ needs.ExtractConfig.outputs.CiCdDeployKeys }}'
+          echo "::add-mask::$DEPLOYKEYS"
           mkdir -p deploykeys
           for ENTRY in $(echo "$DEPLOYKEYS" | jq -c 'to_entries[]'); do
             NAME=$(echo "$ENTRY" | jq -r '.key')
@@ -157,6 +158,7 @@ jobs:
       - name: Validate Keypairs
         run: |
           KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.ProductYml }}' | jq -r '.Ec2.KeyPairs | keys[]')
+          echo "::add-mask::$KEYPAIRS"
           for KEY in $KEYPAIRS; do
             echo "🔑 Validando clave: $KEY"
             BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.ProductYml }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
@@ -202,6 +204,7 @@ jobs:
       - name: Append Product Yml > vars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.ProductYml }}'
+          echo "::add-mask::$VARS"
           added_count=$(echo "$VARS" | jq 'keys | length')
           jq -s '.[0] * .[1]' vars.json <(echo "$VARS") > tmp.json && mv tmp.json vars.json
           echo "✅ $added_count variables added from iProductYml to vars.json"
