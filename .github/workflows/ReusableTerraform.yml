@@ -70,10 +70,15 @@ jobs:
           Prod|Dev) echo "✅ Environment '${{ inputs.Environment }}' is valid" ;;
           *) echo "❌ Invalid Environment: ${{ inputs.Environment }}"; exit 1 ;;
         esac
-        if [[ ! "${{ inputs.Stage }}" =~ ^[A-Z] ]]; then
-          echo "❌ Invalid Stage: ${{ inputs.Stage }}"
-          exit 1
-        fi
+        case "${{ inputs.Stage }}" in
+          Workload|Poc)
+            echo "✅ Stage '${{ inputs.Stage }}' is valid"
+            ;;
+          *)
+            echo "❌ Invalid Stage: ${{ inputs.Stage }} (must be 'Workload' or 'Poc')"
+            exit 1
+            ;;
+        esac
         echo "✅ Product '$product' is valid"
         echo "✅ Environment '${{ inputs.Environment }}' is valid"
         echo "✅ Stage '${{ inputs.Stage }}' is valid"
