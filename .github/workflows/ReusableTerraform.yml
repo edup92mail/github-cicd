@@ -12,6 +12,9 @@ on:
       Stage:
         required: true
         type: string
+      Repo:
+        required: true
+        type: string
       Environment:
         required: true
         type: string
@@ -71,7 +74,7 @@ jobs:
           *) echo "❌ Invalid Environment: ${{ inputs.Environment }}"; exit 1 ;;
         esac
         case "${{ inputs.Stage }}" in
-          Workload|Poc)
+          Workload|Concept)
             echo "✅ Stage '${{ inputs.Stage }}' is valid"
             ;;
           *)
