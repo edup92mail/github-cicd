@@ -239,7 +239,7 @@ jobs:
       - name: Append environment variables > variables.tfvars.json
         run: |
           ENVIRONMENT=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
-          VARS="./environments/$ENVIRONMENT.json"
+          VARS="./environments/$ENVIRONMENT.tfvars.json"
           added_count=$(jq 'keys | length' "$VARS")
           jq -s '.[0] * .[1]' variables.tfvars.json "$VARS" > tmp.json && mv tmp.json variables.tfvars.json
           echo "✅ $added_count variables added from $VARS to variables.tfvars.json"
