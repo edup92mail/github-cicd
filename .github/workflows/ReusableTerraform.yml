@@ -58,10 +58,11 @@ jobs:
       run: |
         VARIABLES_FILE="variables.json"
         REQUIRED_KEYS=(
+          ".CiCd.Project"
           ".CiCd.Region"
           ".CiCd.Role"
           ".CiCd.BackendBucket"
-          ".Project.Name"
+
           ".Project.Network"
           ".Project.Ec2"
         )
@@ -75,13 +76,13 @@ jobs:
     - name: Validate Project, Repo, Stage and Environment format
       run: |
         VARIABLES_FILE="variables.json"
-        NAME=$(jq -r '.CiCd.Name' "$VARIABLES_FILE")
+        PROJECT=$(jq -r '.CiCd.Project' "$VARIABLES_FILE")
         ENVIRONMENT="${{ inputs.Environment }}"
         STAGE="${{ inputs.Stage }}"
 
-        # Validar que .CiCd.Name comience con mayúscula
-        if [[ ! "$NAME" =~ ^[A-Z] ]]; then
-          echo "❌ NAME must start with a capital letter (actual: \"$NAME\")"
+        # Validar que .CiCd.Project comience con mayúscula
+        if [[ ! "$PROJECT" =~ ^[A-Z] ]]; then
+          echo "❌ PROJECT must start with a capital letter (actual: \"$PROJECT\")"
           exit 1
         fi
 
@@ -121,13 +122,12 @@ jobs:
         id: CiCdJson
         run: |
           VARIABLES_FILE="variables.json"
-          NAME=$(jq -r '.CiCd.Name' "$VARIABLES_FILE")
-          REPO=$(basename "$GITHUB_REPOSITORY")
+          PROJECT=$(jq -r '.CiCd.Project' "$VARIABLES_FILE")
           REGION=$(jq -r '.CiCd.Region' "$VARIABLES_FILE")
           ROLE=$(jq -r '.CiCd.Role' "$VARIABLES_FILE")
           BACKENDBUCKET=$(jq -r '.CiCd.BackendBucket' "$VARIABLES_FILE")
           DEPLOYKEYS=$(jq -c '.CiCd.DeployKeys' "$VARIABLES_FILE")
-          echo "NAME=$NAME" >> $GITHUB_OUTPUT
+          echo "PROJECT=$PROJECT" >> $GITHUB_OUTPUT
           echo "REPO=$REPO" >> $GITHUB_OUTPUT
           echo "REGION=$REGION" >> $GITHUB_OUTPUT
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
@@ -135,8 +135,7 @@ jobs:
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
     outputs:
       ProjectJson: ${{ steps.ProjectJson.outputs.JSON }}
-      NAME: ${{ steps.CiCdJson.outputs.NAME }}
-      Repo: ${{ steps.CiCdJson.outputs.REPO }}
+      Project: ${{ steps.CiCdJson.outputs.PROJECT }}
       CiCdRegion: ${{ steps.CiCdJson.outputs.REGION }}
       CiCdRole: ${{ steps.CiCdJson.outputs.ROLE }}
       CiCdBackendBucket: ${{ steps.CiCdJson.outputs.BACKENDBUCKET }}
@@ -214,13 +213,13 @@ jobs:
         run: echo "{}" > variables.tfvars.json
       - name: Append Project Name String > variables.tfvars.json
         run: |
-          jq --arg Project "${{ steps.CiCdJson.outputs.PROJECT }}" '. + {Project: $Project}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
+          jq --arg PROJECT "${{ steps.CiCdJson.outputs.Project }}" '.Tags += {Project: $PROJECT}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
       - name: Append Repo String > variables.tfvars.json
         run: |
-          jq --arg Repo "${{ steps.CiCdJson.outputs.REPO }}" '. + {Repo: $Repo}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
+          jq --arg Repo "$(basename "$GITHUB_REPOSITORY")" '.Tags += {Repo: $Repo}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
       - name: Append Stage String > variables.tfvars.json
         run: |
-          jq --arg stage "${{ inputs.Stage }}" '. + {Stage: $stage}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
+          jq --arg stage "${{ inputs.Stage }}" '.Tags += {Stage: $stage}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
       - name: Append variables.json Project > variables.tfvars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.ProjectJson }}'
