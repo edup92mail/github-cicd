@@ -226,7 +226,7 @@ jobs:
           jq --arg Project "${{ steps.CiCdJson.outputs.PROJECT }}" '. + {Project: $Project}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
       - name: Append Repo String > variables.tfvars.json
         run: |
-          jq --arg Project "${{ steps.CiCdJson.outputs.REPO }}" '. + {Repo: $Repo}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
+          jq --arg Repo "${{ steps.CiCdJson.outputs.REPO }}" '. + {Repo: $Repo}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
       - name: Append Stage String > variables.tfvars.json
         run: |
           jq --arg stage "${{ inputs.Stage }}" '. + {Stage: $stage}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
