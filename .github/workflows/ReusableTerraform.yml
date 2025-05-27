@@ -332,7 +332,7 @@ jobs:
           issue-title: "Terraform Apply to Project ${{ steps.VariablesJson.outputs.Project }} in Env ${{ inputs.Environment }}"
           issue-body: |
             "test"
-            #${{ steps.TerraformPlan.outputs.stdout }} 
+
           additional-approved-words: 'allow'
           additional-denied-words: 'deny'
       - name: Terraform Apply
