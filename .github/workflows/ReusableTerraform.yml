@@ -75,8 +75,8 @@ jobs:
       run: |
         VARIABLES_FILE="variables.json"
         REQUIRED_KEYS=(
-          ".Project.Network"
-          ".Project.Ec2"
+          ".Network"
+          ".Ec2"
         )
         for key in "${REQUIRED_KEYS[@]}"; do
           value=$(jq -r "$key // empty" "$VARIABLES_FILE")
