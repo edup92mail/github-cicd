@@ -251,6 +251,7 @@ jobs:
           VAR_FILE="./environments/${ENVIRONMENT}.tf"
           TARGET_FILE="variables.tf"
           echo "✅ Appending $VAR_FILE to $TARGET_FILE"
+          echo -e "\n\n" >> "$TARGET_FILE"
           cat "$VAR_FILE" >> "$TARGET_FILE"
       - name: Append inputs.ExtraVars > tfvars.json
         run: |
