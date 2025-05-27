@@ -45,6 +45,7 @@ jobs:
           providers.tf
           backend.tf
           outputs.tf
+          cicd.json
           variables.json
           variables.tf
           ./environments/$ENVIRONMENT.tfvars.json
@@ -54,15 +55,26 @@ jobs:
           [[ -f "$file" ]] || { echo "❌ Missing required file: $file"; exit 1; }
         done
         echo "✅ All required files are present"
+    - name: Validate minimal keys in cicd.json
+      run: |
+        VARIABLES_FILE="cicd.json"
+        REQUIRED_KEYS=(
+          ".Project"
+          ".Region"
+          ".Role"
+          ".BackendBucket"
+        )
+        for key in "${REQUIRED_KEYS[@]}"; do
+          value=$(jq -r "$key // empty" "$VARIABLES_FILE")
+          if [[ -z "$value" || "$value" == "null" ]]; then
+            echo "❌ ERROR: Missing key $key" ; exit 1
+          fi
+        done
+        echo "✅ All required Keys exists"
     - name: Validate minimal keys in variables.json
       run: |
         VARIABLES_FILE="variables.json"
         REQUIRED_KEYS=(
-          ".CiCd.Project"
-          ".CiCd.Region"
-          ".CiCd.Role"
-          ".CiCd.BackendBucket"
-
           ".Project.Network"
           ".Project.Ec2"
         )
@@ -75,12 +87,12 @@ jobs:
         echo "✅ All required Keys exists"
     - name: Validate Project, Repo, Stage and Environment format
       run: |
-        VARIABLES_FILE="variables.json"
-        PROJECT=$(jq -r '.CiCd.Project' "$VARIABLES_FILE")
+        VARIABLES_FILE="cicd.json"
+        PROJECT=$(jq -r '.Project' "$VARIABLES_FILE")
         ENVIRONMENT="${{ inputs.Environment }}"
         STAGE="${{ inputs.Stage }}"
 
-        # Validar que .CiCd.Project comience con mayúscula
+        # Validar que .Project comience con mayúscula
         if [[ ! "$PROJECT" =~ ^[A-Z] ]]; then
           echo "❌ PROJECT must start with a capital letter (actual: \"$PROJECT\")"
           exit 1
@@ -112,29 +124,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Load Project.yml
-        id: ProjectJson
-        run: |
-          VARIABLES_FILE="variables.json"
-          PROJECT=$(jq -c '.Project' "$VARIABLES_FILE")
-          echo "JSON=$PROJECT" >> $GITHUB_OUTPUT
       - name: Load CiCd Data
         id: CiCdJson
         run: |
-          VARIABLES_FILE="variables.json"
-          PROJECT=$(jq -r '.CiCd.Project' "$VARIABLES_FILE")
-          REGION=$(jq -r '.CiCd.Region' "$VARIABLES_FILE")
-          ROLE=$(jq -r '.CiCd.Role' "$VARIABLES_FILE")
-          BACKENDBUCKET=$(jq -r '.CiCd.BackendBucket' "$VARIABLES_FILE")
-          DEPLOYKEYS=$(jq -c '.CiCd.DeployKeys' "$VARIABLES_FILE")
+          VARIABLES_FILE="cicd.json"
+          PROJECT=$(jq -r '.Project' "$VARIABLES_FILE")
+          REGION=$(jq -r '.Region' "$VARIABLES_FILE")
+          ROLE=$(jq -r '.Role' "$VARIABLES_FILE")
+          BACKENDBUCKET=$(jq -r '.BackendBucket' "$VARIABLES_FILE")
+          DEPLOYKEYS=$(jq -c '.DeployKeys' "$VARIABLES_FILE")
           echo "PROJECT=$PROJECT" >> $GITHUB_OUTPUT
           echo "REPO=$REPO" >> $GITHUB_OUTPUT
           echo "REGION=$REGION" >> $GITHUB_OUTPUT
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
           echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
+      - name: Load variables.json
+        id: VariablesJson
+        run: |
+          VARIABLES_FILE="variables.json"
+          JSON=$(jq -c '.' "$VARIABLES_FILE")
+          echo "JSON=$JSON" >> $GITHUB_OUTPUT
     outputs:
-      ProjectJson: ${{ steps.ProjectJson.outputs.JSON }}
+      VariablesJson: ${{ steps.VariablesJson.outputs.JSON }}
       Project: ${{ steps.CiCdJson.outputs.PROJECT }}
       CiCdRegion: ${{ steps.CiCdJson.outputs.REGION }}
       CiCdRole: ${{ steps.CiCdJson.outputs.ROLE }}
@@ -177,10 +189,10 @@ jobs:
           path: deploykeys/
       - name: Validate Keypairs
         run: |
-          KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.ProjectJson }}' | jq -r '.Ec2.KeyPairs | keys[]')
+          KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.VariablesJson }}' | jq -r '.Ec2.KeyPairs | keys[]')
           for KEY in $KEYPAIRS; do
             echo "🔑 Validando clave: $KEY"
-            BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.ProjectJson }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
+            BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.VariablesJson }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
             echo "$BASE64_KEY" | base64 -d > decoded_key 2>/dev/null
             if ssh-keygen -l -f decoded_key >/dev/null 2>&1; then
               echo "✅ $KEY is valid"
@@ -209,43 +221,43 @@ jobs:
             key    = "${{ format('{0}{1}.tfstate', needs.ExtractConfig.outputs.Project, inputs.Stage) }}"
             region = "${{ needs.ExtractConfig.outputs.CiCdRegion }}"
           EOF
-      - name: Create empty variables.tfvars.json
-        run: echo "{}" > variables.tfvars.json
-      - name: Append Project Name String > variables.tfvars.json
+      - name: Create empty tfvars.json
+        run: echo "{}" > tfvars.json
+      - name: Append Project Name String > tfvars.json
         run: |
-          jq --arg PROJECT "${{ steps.CiCdJson.outputs.Project }}" '.Tags += {Project: $PROJECT}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
-      - name: Append Repo String > variables.tfvars.json
+          jq --arg PROJECT "${{ steps.CiCdJson.outputs.Project }}" '.Tags += {Project: $PROJECT}' tfvars.json > tmp.json && mv tmp.json tfvars.json
+      - name: Append Repo String > tfvars.json
         run: |
-          jq --arg Repo "$(basename "$GITHUB_REPOSITORY")" '.Tags += {Repo: $Repo}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
-      - name: Append Stage String > variables.tfvars.json
+          jq --arg Repo "$(basename "$GITHUB_REPOSITORY")" '.Tags += {Repo: $Repo}' tfvars.json > tmp.json && mv tmp.json tfvars.json
+      - name: Append Stage String > tfvars.json
         run: |
-          jq --arg stage "${{ inputs.Stage }}" '.Tags += {Stage: $stage}' variables.tfvars.json > tmp.json && mv tmp.json variables.tfvars.json
-      - name: Append variables.json Project > variables.tfvars.json
+          jq --arg stage "${{ inputs.Stage }}" '.Tags += {Stage: $stage}' tfvars.json > tmp.json && mv tmp.json tfvars.json
+      - name: Append variables.json Project > tfvars.json
         run: |
-          VARS='${{ needs.ExtractConfig.outputs.ProjectJson }}'
+          VARS='${{ needs.ExtractConfig.outputs.VariablesJson }}'
           added_count=$(echo "$VARS" | jq 'keys | length')
-          jq -s '.[0] * .[1]' variables.tfvars.json <(echo "$VARS") > tmp.json && mv tmp.json variables.tfvars.json
-          echo "✅ $added_count variables added from Variables Project to variables.tfvars.json"
-      - name: Append environment variables > variables.tfvars.json
+          jq -s '.[0] * .[1]' tfvars.json <(echo "$VARS") > tmp.json && mv tmp.json tfvars.json
+          echo "✅ $added_count variables added from Variables Project to tfvars.json"
+      - name: Append environment variables > tfvars.json
         run: |
           ENVIRONMENT=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
           VARS="./environments/$ENVIRONMENT.tfvars.json"
           added_count=$(jq 'keys | length' "$VARS")
-          jq -s '.[0] * .[1]' variables.tfvars.json "$VARS" > tmp.json && mv tmp.json variables.tfvars.json
-          echo "✅ $added_count variables added from $VARS to variables.tfvars.json"
-      - name: Append inputs.ExtraVars > variables.tfvars.json
+          jq -s '.[0] * .[1]' tfvars.json "$VARS" > tmp.json && mv tmp.json tfvars.json
+          echo "✅ $added_count variables added from $VARS to tfvars.json"
+      - name: Append inputs.ExtraVars > tfvars.json
         run: |
           VARS='${{ inputs.ExtraVars }}'
           added_count=$(echo "$VARS" | jq 'keys | length')
-          jq -s '.[0] * .[1]' variables.tfvars.json <(echo "$VARS") > tmp.json && mv tmp.json variables.tfvars.json
-          echo "✅ $added_count variables added from inputs.ExtraVars to variables.tfvars.json"
+          jq -s '.[0] * .[1]' tfvars.json <(echo "$VARS") > tmp.json && mv tmp.json tfvars.json
+          echo "✅ $added_count variables added from inputs.ExtraVars to tfvars.json"
       - name: Upload Terraform config files
         uses: actions/upload-artifact@v4
         with:
           name: TfFiles
           path: |
             backend.tfbackend
-            variables.tfvars.json
+            tfvars.json
 
   Apply:
     runs-on: ${{ inputs.Runner }}
@@ -300,7 +312,7 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -var-file=variables.tfvars.json -no-color
+        run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
@@ -308,7 +320,7 @@ jobs:
         with:
           secret: ${{ github.TOKEN }}
           approvers: ${{ github.actor }}
-          issue-title: "Terraform Apply to Project ${{ steps.ProjectJson.outputs.Project }} in Env ${{ inputs.Environment }}"
+          issue-title: "Terraform Apply to Project ${{ steps.VariablesJson.outputs.Project }} in Env ${{ inputs.Environment }}"
           issue-body: |
             Plan output:
 
@@ -319,7 +331,7 @@ jobs:
           additional-approved-words: 'allow'
           additional-denied-words: 'deny'
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=variables.tfvars.json
+        run: terraform apply -auto-approve -var-file=tfvars.json
       - name: Terraform Output
         id: TerraformOutput
         run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
