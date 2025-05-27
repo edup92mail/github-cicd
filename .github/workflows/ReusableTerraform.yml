@@ -46,7 +46,8 @@ jobs:
           backend.tf
           outputs.tf
           cicd.json
-          variables.json
+          cicd.tf
+          project.json
           variables.tf
           ./environments/$ENVIRONMENT.tfvars.json
           ./environments/$ENVIRONMENT.tf
@@ -71,9 +72,9 @@ jobs:
           fi
         done
         echo "✅ All required Keys exists"
-    - name: Validate minimal keys in variables.json
+    - name: Validate minimal keys in project.json
       run: |
-        VARIABLES_FILE="variables.json"
+        VARIABLES_FILE="project.json"
         REQUIRED_KEYS=(
           ".Network"
           ".Ec2"
@@ -139,10 +140,10 @@ jobs:
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
           echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
-      - name: Load variables.json
+      - name: Load project.json
         id: VariablesJson
         run: |
-          VARIABLES_FILE="variables.json"
+          VARIABLES_FILE="project.json"
           JSON=$(jq -c '.' "$VARIABLES_FILE")
           echo "JSON=$JSON" >> $GITHUB_OUTPUT
     outputs:
@@ -232,7 +233,7 @@ jobs:
       - name: Append Stage String > tfvars.json
         run: |
           jq --arg stage "${{ inputs.Stage }}" '.Tags += {Stage: $stage}' tfvars.json > tmp.json && mv tmp.json tfvars.json
-      - name: Append variables.json Project > tfvars.json
+      - name: Append project.json > tfvars.json
         run: |
           VARS='${{ needs.ExtractConfig.outputs.VariablesJson }}'
           added_count=$(echo "$VARS" | jq 'keys | length')
@@ -245,6 +246,13 @@ jobs:
           added_count=$(jq 'keys | length' "$VARS")
           jq -s '.[0] * .[1]' tfvars.json "$VARS" > tmp.json && mv tmp.json tfvars.json
           echo "✅ $added_count variables added from $VARS to tfvars.json"
+      - name: Append ENVIRONMENT.tf to root variables.tf
+        run: |
+          ENVIRONMENT=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
+          VAR_FILE="./environments/${ENVIRONMENT}.tf"
+          TARGET_FILE="variables.tf"
+          echo "✅ Appending $VAR_FILE to $TARGET_FILE"
+          cat "$VAR_FILE" >> "$TARGET_FILE"
       - name: Append inputs.ExtraVars > tfvars.json
         run: |
           VARS='${{ inputs.ExtraVars }}'
@@ -258,6 +266,7 @@ jobs:
           path: |
             backend.tfbackend
             tfvars.json
+            variables.tf
 
   Apply:
     runs-on: ${{ inputs.Runner }}
