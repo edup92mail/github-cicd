@@ -319,11 +319,6 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
         timeout-minutes: 1
-      - name: Debug Project Output
-        run: |
-          echo "🔎 PROJECT: '${{ needs.ExtractConfig.outputs.Project }}'"
-      - name: test 
-        run: cat tfvars.json
       - name: Terraform Plan
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color
