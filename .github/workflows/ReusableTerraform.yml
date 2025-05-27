@@ -46,7 +46,6 @@ jobs:
           backend.tf
           outputs.tf
           cicd.json
-          cicd.tf
           project.json
           variables.tf
           ./environments/$ENVIRONMENT.tfvars.json
