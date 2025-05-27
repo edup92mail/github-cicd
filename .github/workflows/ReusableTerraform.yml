@@ -225,7 +225,7 @@ jobs:
         run: echo "{}" > tfvars.json
       - name: Append Project Name String > tfvars.json
         run: |
-          jq --arg PROJECT "${{ steps.CiCdJson.outputs.Project }}" '.Tags += {Project: $PROJECT}' tfvars.json > tmp.json && mv tmp.json tfvars.json
+          jq --arg PROJECT "${{ steps.ExtractConfig.outputs.Project }}" '.Tags += {Project: $PROJECT}' tfvars.json > tmp.json && mv tmp.json tfvars.json
       - name: Append Repo String > tfvars.json
         run: |
           jq --arg Repo "$(basename "$GITHUB_REPOSITORY")" '.Tags += {Repo: $Repo}' tfvars.json > tmp.json && mv tmp.json tfvars.json
