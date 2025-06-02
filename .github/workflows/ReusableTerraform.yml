@@ -40,6 +40,7 @@ jobs:
     - name: Validate required files
       run: |
         ENVIRONMENT=$(echo "${{ inputs.Environment }}" | tr '[:upper:]' '[:lower:]')
+        STAGE=$(echo "${{ inputs.Stage }}" | tr '[:upper:]' '[:lower:]')
         required_files=(
           main.tf
           providers.tf
@@ -48,6 +49,7 @@ jobs:
           cicd.json
           project.json
           variables.tf
+          ./stages/$STAGE.json
           ./environments/$ENVIRONMENT.tfvars.json
           ./environments/$ENVIRONMENT.tf
         )
@@ -71,9 +73,10 @@ jobs:
           fi
         done
         echo "✅ All required Keys exists"
-    - name: Validate minimal keys in project.json
+    - name: Validate minimal keys in $Stage.json
       run: |
-        VARIABLES_FILE="project.json"
+        STAGE=$(echo "${{ inputs.Stage }}" | tr '[:upper:]' '[:lower:]')
+        VARIABLES_FILE="./stages/$STAGE.json"
         REQUIRED_KEYS=(
           ".Network"
           ".Ec2"
@@ -139,14 +142,15 @@ jobs:
           echo "ROLE=$ROLE" >> $GITHUB_OUTPUT
           echo "BACKENDBUCKET=$BACKENDBUCKET" >> $GITHUB_OUTPUT
           echo "DEPLOYKEYS=$DEPLOYKEYS" >> $GITHUB_OUTPUT
-      - name: Load project.json
-        id: VariablesJson
+      - name: Load $Stage.json
+        id: StageJson
         run: |
-          VARIABLES_FILE="project.json"
+          STAGE=$(echo "${{ inputs.Stage }}" | tr '[:upper:]' '[:lower:]')
+          VARIABLES_FILE="./stages/$STAGE.json"
           JSON=$(jq -c '.' "$VARIABLES_FILE")
           echo "JSON=$JSON" >> $GITHUB_OUTPUT
     outputs:
-      VariablesJson: ${{ steps.VariablesJson.outputs.JSON }}
+      StageJson: ${{ steps.StageJson.outputs.JSON }}
       Project: ${{ steps.CiCdJson.outputs.PROJECT }}
       CiCdRegion: ${{ steps.CiCdJson.outputs.REGION }}
       CiCdRole: ${{ steps.CiCdJson.outputs.ROLE }}
@@ -189,10 +193,10 @@ jobs:
           path: deploykeys/
       - name: Validate Keypairs
         run: |
-          KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.VariablesJson }}' | jq -r '.Ec2.KeyPairs | keys[]')
+          KEYPAIRS=$(echo '${{ needs.ExtractConfig.outputs.StageJson }}' | jq -r '.Ec2.KeyPairs | keys[]')
           for KEY in $KEYPAIRS; do
             echo "🔑 Validando clave: $KEY"
-            BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.VariablesJson }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
+            BASE64_KEY=$(echo '${{ needs.ExtractConfig.outputs.StageJson }}' | jq -r ".Ec2.KeyPairs[\"$KEY\"]")
             echo "$BASE64_KEY" | base64 -d > decoded_key 2>/dev/null
             if ssh-keygen -l -f decoded_key >/dev/null 2>&1; then
               echo "✅ $KEY is valid"
@@ -232,9 +236,9 @@ jobs:
       - name: Append Stage String > tfvars.json
         run: |
           jq --arg stage "${{ inputs.Stage }}" '.Tags += {Stage: $stage}' tfvars.json > tmp.json && mv tmp.json tfvars.json
-      - name: Append project.json > tfvars.json
+      - name: Append $stage.json > tfvars.json
         run: |
-          VARS='${{ needs.ExtractConfig.outputs.VariablesJson }}'
+          VARS='${{ needs.ExtractConfig.outputs.StageJson }}'
           added_count=$(echo "$VARS" | jq 'keys | length')
           jq -s '.[0] * .[1]' tfvars.json <(echo "$VARS") > tmp.json && mv tmp.json tfvars.json
           echo "✅ $added_count variables added from Variables Project to tfvars.json"
@@ -329,7 +333,7 @@ jobs:
         with:
           secret: ${{ github.TOKEN }}
           approvers: ${{ github.actor }}
-          issue-title: "Terraform Apply to Project ${{ steps.VariablesJson.outputs.Project }} in Env ${{ inputs.Environment }}"
+          issue-title: "Terraform Apply to Project ${{ steps.StageJson.outputs.Project }} in Env ${{ inputs.Environment }}"
           issue-body: |
             ${{ steps.TerraformPlan.outputs.stdout }} 
           additional-approved-words: 'allow'
