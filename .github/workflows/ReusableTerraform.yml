@@ -104,9 +104,9 @@ jobs:
           exit 1
         fi
 
-        # Validar que Stage sea solo "Workload" o "Concept"
-        if [[ "$STAGE" != "Workload" && "$STAGE" != "Concept" ]]; then
-          echo "❌ Invalid Stage: (actual: \"$STAGE\")"
+        # Validar que Stage comience con mayúscula
+        if [[ ! "$STAGE" =~ ^[A-Z] ]]; then
+          echo "❌ PROJECT must start with a capital letter (actual: \"$PROJECT\")"
           exit 1
         fi
 
