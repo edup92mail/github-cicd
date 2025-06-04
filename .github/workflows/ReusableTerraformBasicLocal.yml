@@ -36,3 +36,5 @@ jobs:
         additional-denied-words: 'deny'
     - name: Terraform Apply
       run: terraform apply -auto-approve
+    - name: Terraform Output
+      run: terraform output
