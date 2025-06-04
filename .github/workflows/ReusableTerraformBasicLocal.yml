@@ -1,0 +1,38 @@
+name: module_terraform
+on:
+  workflow_call:
+        
+jobs:
+
+  Terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read 
+      issues: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v3
+    - name: Terraform Init
+      run: terraform init
+    - name: Terraform Validate
+      run: terraform validate
+      timeout-minutes: 1
+    - name: Terraform Plan
+      id: TerraformPlan
+      run: terraform plan
+      timeout-minutes: 1
+    - name: Manual Workflow Approval
+      uses: trstringer/manual-approval@v1.9.1
+      timeout-minutes: 5
+      with:
+        secret: ${{ github.TOKEN }}
+        approvers: ${{ github.actor }}
+        issue-title: "Terraform Apply Basic Local"
+        issue-body: |
+          ${{ steps.TerraformPlan.outputs.stdout }} 
+        additional-approved-words: 'allow'
+        additional-denied-words: 'deny'
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
