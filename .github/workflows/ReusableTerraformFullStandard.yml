@@ -79,6 +79,8 @@ jobs:
         REQUIRED_KEYS=(
           ".Network"
           ".Ec2"
+          ".Network.Vpc"
+          ".Network.Route53"
         )
         for key in "${REQUIRED_KEYS[@]}"; do
           value=$(jq -r "$key // empty" "$VARIABLES_FILE")
