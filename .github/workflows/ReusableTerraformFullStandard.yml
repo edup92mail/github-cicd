@@ -329,31 +329,30 @@ jobs:
       - name: Send Terraform Plan to Slack
         uses: slackapi/slack-github-action@v1.26.0
         with:
-          payload: |
-            {
-              "text": "${{ format('Plan de Terraform para el proyecto {0} en entorno {1}', needs.ExtractConfig.outputs.Project, inputs.Environment) }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Plan de Terraform para el proyecto:* `${{ needs.ExtractConfig.outputs.Project }}`\n*Entorno:* `${{ inputs.Environment }}`"
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "```\n${{ steps.TerraformPlan.outputs.stdout }}\n```"
-                  }
+          payload: ${{ toJson({
+            "text": format('Plan de Terraform para el proyecto {0} en entorno {1}', needs.ExtractConfig.outputs.Project, inputs.Environment),
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": format('*Plan de Terraform para el proyecto:* `{0}`\n*Entorno:* `{1}`', needs.ExtractCofig.outputs.Project, inputs.Environment)
                 }
-              ]
-            }
+              },
+              {
+                "type": "divider"
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": format('```\n{0}\n```', steps.TerraformPlan.outputs.stdout)
+                }
+              }
+            ]
+          }) }}
         env:
-          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
+          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
