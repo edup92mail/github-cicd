@@ -324,7 +324,11 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -var-file=tfvars.json -no-color
+        run: |
+          terraform plan -var-file=tfvars.json -no-color | tee full_plan.txt
+          head -c 3000 full_plan.txt > short_plan.txt
+          SHORT_PLAN=$(cat short_plan.txt | jq -Rs .)
+          echo "stdout=$SHORT_PLAN" >> $GITHUB_OUTPUT
         timeout-minutes: 1
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
@@ -378,9 +382,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*📄 Terraform Plan (resumen):* \n```${
-                      steps.TerraformPlan.outputs.stdout[:3000]
-                    }${{ steps.TerraformPlan.outputs.stdout.length > 3000 && '\n... (truncado)' || '' }}```"
+                    "text": "*📄 Terraform Plan (resumen):* \n``` ${{ steps.TerraformPlan.outputs.stdout }} ```"
                   }
                 }
               ]
