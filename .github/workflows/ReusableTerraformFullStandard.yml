@@ -336,7 +336,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": format('*Plan de Terraform para el proyecto:* `{0}`\n*Entorno:* `{1}`', needs.ExtractCofig.outputs.Project, inputs.Environment)
+                  "text": format('*Plan de Terraform para el proyecto:* `{0}`\n*Entorno:* `{1}`', needs.ExtractConfig.outputs.Project, inputs.Environment)
                 }
               },
               {
@@ -352,7 +352,7 @@ jobs:
             ]
           }) }}
         env:
-          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
+          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
