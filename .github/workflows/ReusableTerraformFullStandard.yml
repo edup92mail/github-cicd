@@ -370,6 +370,18 @@ jobs:
                     "type": "mrkdwn",
                     "text": "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
                   }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*📄 Terraform Plan (resumen):* \n```${
+                      steps.TerraformPlan.outputs.stdout[:3000]
+                    }${{ steps.TerraformPlan.outputs.stdout.length > 3000 && '\n... (truncado)' || '' }}```"
+                  }
                 }
               ]
             }
