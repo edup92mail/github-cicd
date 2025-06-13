@@ -324,7 +324,7 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -no-color > plan_output.txt
+        run: terraform plan -no-color -input=false > plan_output.txt
       - name: Add Terraform Plan to Summary
         run: |
           echo '### Terraform Plan Summary' >> $GITHUB_STEP_SUMMARY
