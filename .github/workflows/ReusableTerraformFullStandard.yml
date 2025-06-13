@@ -326,6 +326,15 @@ jobs:
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
+      - name: Send Terraform Plan to Slack
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          slack-message: |
+            *Terraform Plan* para el proyecto *${{ steps.StageJson.outputs.Project }}* en entorno *${{ inputs.Environment }}*:
+            ```
+            ${{ steps.TerraformPlan.outputs.stdout }}
+            ```
+          slack-webhook-url: "https://hooks.slack.com/services/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"
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
