@@ -334,7 +334,8 @@ jobs:
             ```
             ${{ steps.TerraformPlan.outputs.stdout }}
             ```
-          slack-webhook-url: "https://hooks.slack.com/services/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"
+        env:
+          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
