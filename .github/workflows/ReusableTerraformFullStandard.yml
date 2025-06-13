@@ -326,17 +326,17 @@ jobs:
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
-      - name: Send Terraform Plan to Slack
-        uses: slackapi/slack-github-action@v1.26.0
-        with:
-          payload: ${{ toJson({
-            "text": format('Plan de Terraform para el proyecto {0} en entorno {1}', needs.ExtractConfig.outputs.Project, inputs.Environment),
+      - name: Construir payload Slack
+        id: slack-payload
+        run: |
+          echo '{
+            "text": "Plan de Terraform para el proyecto '${{ needs.ExtractConfig.outputs.Project }}' en entorno '${{ inputs.Environment }}'",
             "blocks": [
               {
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": format('*Plan de Terraform para el proyecto:* `{0}`\n*Entorno:* `{1}`', needs.ExtractConfig.outputs.Project, inputs.Environment)
+                  "text": "*Plan de Terraform para el proyecto:* `${{ needs.ExtractConfig.outputs.Project }}`\n*Entorno:* `${{ inputs.Environment }}`"
                 }
               },
               {
@@ -346,13 +346,17 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": format('```\n{0}\n```', steps.TerraformPlan.outputs.stdout)
+                  "text": "```'$(echo "${{ steps.TerraformPlan.outputs.stdout }}" | head -c 3000)```"
                 }
               }
             ]
-          }) }}
+          }' > payload.json
+      - name: Enviar a Slack
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload-file-path: payload.json
         env:
-          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
