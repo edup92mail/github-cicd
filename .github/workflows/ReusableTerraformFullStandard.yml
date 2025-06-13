@@ -329,14 +329,15 @@ jobs:
       - name: Construir payload Slack
         id: slack-payload
         run: |
-          echo '{
+          cat <<EOF > payload.json
+          {
             "text": "Plan de Terraform para el proyecto '${{ needs.ExtractConfig.outputs.Project }}' en entorno '${{ inputs.Environment }}'",
             "blocks": [
               {
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*Plan de Terraform para el proyecto:* `${{ needs.ExtractConfig.outputs.Project }}`\n*Entorno:* `${{ inputs.Environment }}`"
+                  "text": "*Plan de Terraform para el proyecto:* \`${{ needs.ExtractConfig.outputs.Project }}\`\n*Entorno:* \`${{ inputs.Environment }}\`"
                 }
               },
               {
@@ -346,11 +347,12 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "```'$(echo "${{ steps.TerraformPlan.outputs.stdout }}" | head -c 3000)```"
+                  "text": "```${{ steps.TerraformPlan.outputs.stdout }}```"
                 }
               }
             ]
-          }' > payload.json
+          }
+      EOF
       - name: Enviar a Slack
         uses: slackapi/slack-github-action@v1.26.0
         with:
