@@ -324,24 +324,13 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -var-file=tfvars.json -no-color
-        timeout-minutes: 1
-
-      - name: Terraform Plan
-        id: plan
-        run: |
-          terraform plan -no-color -out=tfplan.txt > plan_output.txt
-          echo "TF_PLAN_OUTPUT<<EOF" >> $GITHUB_ENV
-          cat plan_output.txt >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
+        run: terraform plan -no-color > plan_output.txt
       - name: Add Terraform Plan to Summary
         run: |
           echo '### Terraform Plan Summary' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat plan_output.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
