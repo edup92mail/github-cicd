@@ -325,10 +325,12 @@ jobs:
       - name: Terraform Plan
         id: TerraformPlan
         run: |
-          terraform plan -var-file=tfvars.json -no-color | tee plan.txt
-          head -c 3000 plan.txt > plan_short.txt
-          # Escapar todo como string JSON válido
-          echo "stdout=$(jq -Rs . < plan_short.txt)" >> $GITHUB_OUTPUT
+          terraform plan -var-file=tfvars.json -no-color | tee full_plan.txt
+          head -c 3000 full_plan.txt > short_plan.txt
+          PLAN=$(cat short_plan.txt)
+          MSG="*📄 Terraform Plan (resumen):*\n\`\`\`\n$PLAN\n\`\`\`"
+          echo "msg=$(jq -Rs . <<< \"$MSG\")" >> $GITHUB_OUTPUT
+
         timeout-minutes: 1
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
@@ -382,7 +384,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*📄 Terraform Plan (resumen):* \n``` ${{ steps.TerraformPlan.outputs.stdout }} ```"
+                    "text": ${{ steps.TerraformPlan.outputs.msg }}
                   }
                 }
               ]
