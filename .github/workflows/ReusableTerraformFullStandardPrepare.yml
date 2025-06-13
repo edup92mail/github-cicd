@@ -347,19 +347,19 @@ jobs:
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*🔧 Proyecto:*\n${{ needs.ExtractConfig.outputs.Project }}"
+                  text: "*🔧 Proyecto:* {{ needs.ExtractConfig.outputs.Project }}"
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*📦 Repositorio:*\n${{ github.repository }}"
+                  text: "*📦 Repositorio:* ${{ github.repository }}"
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*🌍 Environment:*\n${{ inputs.Environment }}"
+                  text: "*🌍 Environment:* ${{ inputs.Environment }}"
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*🗂️ Stage:*\n${{ inputs.Stage }}"
+                  text: "*🗂️ Stage:* ${{ inputs.Stage }}"
               - type: section
                 text:
                   type: mrkdwn
