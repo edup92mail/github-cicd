@@ -330,9 +330,19 @@ jobs:
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: "https://hooks.slack.com/services/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"
+          webhook-type: incoming-webhook
           payload: |
             {
-              "text": "*Nueva versión publicada!* :rocket:\nRepositorio: `${{ github.repository }}`\nVersión: `${{ github.event.release.tag_name }}`\nNotas:\n${{ github.event.release.body }}"
+              "text": "*🚀 Nueva versión publicada!*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Repositorio:* `${{ github.repository }}`\n*Versión:* `${{ github.event.release.tag_name }}`\n*Notas de la release:* \n${{ github.event.release.body }}"
+                  }
+                }
+              ]
             }
       - name: Terraform Apply
         run: terraform apply -auto-approve -var-file=tfvars.json
