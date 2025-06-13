@@ -324,14 +324,24 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: |
-          terraform plan -var-file=tfvars.json -no-color | tee full_plan.txt
-          head -c 3000 full_plan.txt > short_plan.txt
-          PLAN=$(cat short_plan.txt)
-          MSG="*📄 Terraform Plan (resumen):*\n\`\`\`\n$PLAN\n\`\`\`"
-          echo "msg=$(jq -Rs . <<< \"$MSG\")" >> $GITHUB_OUTPUT
-
+        run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -no-color -out=tfplan.txt > plan_output.txt
+          echo "TF_PLAN_OUTPUT<<EOF" >> $GITHUB_ENV
+          cat plan_output.txt >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Add Terraform Plan to Summary
+        run: |
+          echo '### Terraform Plan Summary' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
@@ -376,23 +386,6 @@ jobs:
                     "type": "mrkdwn",
                     "text": "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
                   }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": ${{ steps.TerraformPlan.outputs.msg }}
-                  }
                 }
               ]
             }
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=tfvars.json
-      - name: Terraform Output
-        id: TerraformOutput
-        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
-    outputs:
-      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
