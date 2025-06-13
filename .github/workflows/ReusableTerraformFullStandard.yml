@@ -333,13 +333,42 @@ jobs:
           webhook-type: incoming-webhook
           payload: |
             {
-              "text": "*🚀 Nueva versión publicada!*",
+              "text": "🚀 Terraform deployment report",
               "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Terraform Deployment",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*🔧 Proyecto:*\n${{ needs.ExtractConfig.outputs.Project }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*📦 Repositorio:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*🌍 Environment:*\n${{ inputs.Environment }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*🗂️ Stage:*\n${{ inputs.Stage }}"
+                    }
+                  ]
+                },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Repositorio:* `${{ github.repository }}`\n*Versión:* `${{ github.event.release.tag_name }}`\n*Notas de la release:* \n${{ github.event.release.body }}"
+                    "text": "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
                   }
                 }
               ]
