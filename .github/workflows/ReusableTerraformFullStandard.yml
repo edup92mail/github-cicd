@@ -326,12 +326,28 @@ jobs:
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
-      - name: Send Terraform Plan to Slack via Webhook
+      - name: Send Terraform Plan to Slack
         uses: slackapi/slack-github-action@v1.26.0
         with:
           payload: |
             {
-              "text": "*Terraform Plan* para el proyecto *${{ steps.StageJson.outputs.Project }}* en entorno *${{ inputs.Environment }}*:\n```terraform\n${{ steps.TerraformPlan.outputs.stdout }}\n```"
+              "text": "Plan de Terraform para el proyecto *${{ needs.ExtractConfig.outputs.Project }}* en entorno *${{ inputs.Environment }}*",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Plan de Terraform para el proyecto *${{ needs.ExtractConfig.outputs.Project }}* en entorno *${{ inputs.Environment }}*:"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "```${{ steps.TerraformPlan.outputs.stdout }}```"
+                  }
+                }
+              ]
             }
         env:
           SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
