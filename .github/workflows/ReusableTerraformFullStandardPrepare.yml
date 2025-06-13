@@ -337,44 +337,30 @@ jobs:
           webhook: "https://hooks.slack.com/services/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"
           webhook-type: incoming-webhook
           payload: |
-            {
-              "text": "🚀 Terraform deployment report",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "🚀 Terraform Deployment",
-                    "emoji": true
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🔧 Proyecto:*\n${{ needs.ExtractConfig.outputs.Project }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*📦 Repositorio:*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🌍 Environment:*\n${{ inputs.Environment }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🗂️ Stage:*\n${{ inputs.Stage }}"
-                    }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
-                  }
-                }
-              ]
-            }
+            text: "🚀 Terraform deployment report"
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "🚀 Terraform Deployment"
+                  emoji: true
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🔧 Proyecto:*\n${{ needs.ExtractConfig.outputs.Project }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*📦 Repositorio:*\n${{ github.repository }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🌍 Environment:*\n${{ inputs.Environment }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🗂️ Stage:*\n${{ inputs.Stage }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
