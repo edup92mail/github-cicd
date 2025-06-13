@@ -332,19 +332,9 @@ jobs:
           webhook: "https://hooks.slack.com/services/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"
           webhook-type: webhook-trigger
           payload: |
-            status: "${{ job.status }}"
-            option: "false"
-      - name: Manual Workflow Approval
-        uses: trstringer/manual-approval@v1.9.1
-        timeout-minutes: 5
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: ${{ github.actor }}
-          issue-title: "Terraform Apply to Project ${{ steps.StageJson.outputs.Project }} in Env ${{ inputs.Environment }}"
-          issue-body: |
-            ${{ steps.TerraformPlan.outputs.stdout }} 
-          additional-approved-words: 'allow'
-          additional-denied-words: 'deny'
+            "release_notes": ${{ toJSON(github.event.release.body) }},
+            "release_repository": "${{ github.repository }}",
+            "release_version": "${{ github.event.release.tag_name }}",
       - name: Terraform Apply
         run: terraform apply -auto-approve -var-file=tfvars.json
       - name: Terraform Output
