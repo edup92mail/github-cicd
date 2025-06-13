@@ -326,39 +326,34 @@ jobs:
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color
         timeout-minutes: 1
-      - name: Construir payload Slack
-        id: slack-payload
-        run: |
-          cat <<EOF > payload.json
-          {
-            "text": "Plan de Terraform para el proyecto '${{ needs.ExtractConfig.outputs.Project }}' en entorno '${{ inputs.Environment }}'",
-            "blocks": [
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*Plan de Terraform para el proyecto:* \`${{ needs.ExtractConfig.outputs.Project }}\`\n*Entorno:* \`${{ inputs.Environment }}\`"
-                }
-              },
-              {
-                "type": "divider"
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "```${{ steps.TerraformPlan.outputs.stdout }}```"
-                }
-              }
-            ]
-          }
-        EOF
-      - name: Enviar a Slack
+      - name: Enviar Terraform Plan a Slack (sin archivo)
         uses: slackapi/slack-github-action@v1.26.0
         with:
-          payload-file-path: payload.json
+          payload: >-
+            {
+              "text": "Plan de Terraform para el proyecto '${{ inputs.Project }}' en entorno '${{ inputs.Environment }}'",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Plan de Terraform para el proyecto:* `${{ inputs.Project }}`\n*Entorno:* `${{ inputs.Environment }}`"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "```${{ steps.TerraformPlan.outputs.stdout }}```"
+                  }
+                }
+              ]
+            }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/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"
       - name: Manual Workflow Approval
         uses: trstringer/manual-approval@v1.9.1
         timeout-minutes: 5
