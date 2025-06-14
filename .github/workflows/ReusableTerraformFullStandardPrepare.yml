@@ -331,6 +331,12 @@ jobs:
           terraform show -no-color tfplan > terraform_plan.txt
           sed -i '1{/^$/d}' terraform_plan.txt  # Remove first empty line of file
           echo "terraform_plan=$(jq --raw-input --slurp '.' < terraform_plan.txt)" >> $GITHUB_ENV
+      - name: Submit plan for approval
+        uses: jbergknoff/github-action-wait-for-terraform-plan-approval@v1
+        id: submit_plan
+        with:
+          command: submit
+          plan_contents: ${{steps.TerraformPlan.outputs.stdout}}
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
@@ -376,3 +382,9 @@ jobs:
                     elements:
                       - type: text
                         text: ${{ env.terraform_plan }}
+      - name: Wait for approval
+        uses: jbergknoff/github-action-wait-for-terraform-plan-approval@v1
+        with:
+          command: wait
+          plan_id: ${{steps.submit_plan.outputs.plan_id}}
+          timeout_seconds: 600
