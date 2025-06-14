@@ -431,6 +431,10 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*🔗 Ver ejecución:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
-      - name: TEST
-        run: |
-          echo "OK"
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file=tfvars.json
+      - name: Terraform Output
+        id: TerraformOutput
+        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
+    outputs:
+      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
