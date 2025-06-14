@@ -382,3 +382,30 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "<https://63tc2ts3arjwah7as5gllhrviq0qogeh.lambda-url.eu-west-1.on.aws?workflow_id=${{ github.run_id }}|✅ Aprobar Job>"
+      - name: Wait for approbal
+        run: |
+          echo "Esperando aprobación para workflow ID: ${{ github.run_id }}..."
+
+          for ((i=1; i<=6; i++)); do
+              STATUS=$(aws dynamodb get-item \
+                --table-name Tfapprober \
+                --key "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}}" \
+                --query "Item.status.S" \
+                --output text 2>/dev/null)
+
+              if [[ "$STATUS" == "OK" ]]; then
+                  echo "✅ Aprobado. Continuando..."
+                  break
+              fi
+
+              echo "⏳ Estado actual: $STATUS (intento $i/5)"
+              sleep 10
+          done
+
+          if [[ "$STATUS" != "OK" ]]; then
+              echo "❌ Aprobación no recibida. Abortando."
+              exit 1
+          fi
+      - name: TEST
+        run: |
+          echo "OK"
