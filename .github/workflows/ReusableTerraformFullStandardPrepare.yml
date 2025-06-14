@@ -325,14 +325,6 @@ jobs:
       - name: Terraform Plan
         id: TerraformPlan
         run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=tfplan
-
-    #    run: terraform plan -no-color -detailed-exitcode -out=tfplan
-    #  - name: Add Terraform Plan to Summary
-    #    run: |
-    #      echo '### Terraform Plan Summary' >> $GITHUB_STEP_SUMMARY
-    #      echo '```' >> $GITHUB_STEP_SUMMARY
-    #      cat plan_output.txt >> $GITHUB_STEP_SUMMARY
-    #      echo '```' >> $GITHUB_STEP_SUMMARY
       - name: Get Terraform diff
         id: tf-diff
         run: |
@@ -355,7 +347,7 @@ jobs:
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*🔧 Proyecto:* {{ needs.ExtractConfig.outputs.Project }}"
+                  text: "*🔧 Proyecto:* ${{ needs.ExtractConfig.outputs.Project }}"
               - type: section
                 text:
                   type: mrkdwn
