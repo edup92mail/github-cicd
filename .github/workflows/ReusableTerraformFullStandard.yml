@@ -398,7 +398,7 @@ jobs:
                   break
               fi
 
-              echo "⏳ Estado actual: $STATUS (intento $i/5)"
+              echo "⏳ Estado actual: $STATUS (intento $i/6)"
               sleep 10
           done
 
