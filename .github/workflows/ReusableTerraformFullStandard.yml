@@ -362,6 +362,10 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*🗂️ Stage:* ${{ inputs.Stage }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🗂️ Workflow Id:* ${{ github.run_id }}"
               - type: rich_text
                 elements:
                   - type: rich_text_section
@@ -388,6 +392,7 @@ jobs:
                     url: "https://63tc2ts3arjwah7as5gllhrviq0qogeh.lambda-url.eu-west-1.on.aws?workflow_id=${{ github.run_id }}"
 
       - name: Wait for approbal
+        id: wait_approval
         run: |
           echo "Esperando aprobación para workflow ID: ${{ github.run_id }}..."
 
@@ -407,10 +412,25 @@ jobs:
               sleep 10
           done
 
-          if [[ "$STATUS" != "OK" ]]; then
-              echo "❌ Aprobación no recibida. Abortando."
-              exit 1
-          fi
+          echo "❌ Aprobación no recibida. Abortando."
+          exit 1
+      - name: Notificar cancelación por falta de aprobación
+        if: failure() && steps.wait_approval.outcome == 'failure'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: "https://hooks.slack.com/services/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"
+          webhook-type: incoming-webhook
+          payload: |
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "❌ Workflow cancelado por timeout en approbal"
+                  emoji: true
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🔗 Ver ejecución:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
       - name: TEST
         run: |
           echo "OK"
