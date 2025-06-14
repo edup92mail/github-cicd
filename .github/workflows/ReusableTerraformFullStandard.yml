@@ -395,27 +395,29 @@ jobs:
         id: wait_approval
         run: |
           echo "Esperando aprobación para workflow ID: ${{ github.run_id }}..."
-
+      
           for ((i=1; i<=6; i++)); do
               STATUS=$(aws dynamodb get-item \
                 --table-name Tfapprober \
                 --key "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}}" \
                 --query "Item.status.S" \
                 --output text 2>/dev/null)
-
+      
               if [[ "$STATUS" == "OK" ]]; then
                   echo "✅ Aprobado. Continuando..."
                   break
               fi
-
+      
               echo "⏳ Estado actual: $STATUS (intento $i/6)"
-              sleep 10
+              sleep 5
           done
-
-          echo "❌ Aprobación no recibida. Abortando."
-          exit 1
+      
+          if [[ "$STATUS" != "OK" ]]; then
+              echo "❌ Aprobación no recibida. Abortando."
+              exit 1
+          fi
       - name: Notificar cancelación por falta de aprobación
-        if: failure() && steps.wait_approval.outcome == 'failure'
+        if: steps.wait_approval.outcome == 'failure'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: "https://hooks.slack.com/services/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"
