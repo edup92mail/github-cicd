@@ -393,6 +393,7 @@ jobs:
 
       - name: Wait for approbal
         id: wait_approval
+        continue-on-error: true
         run: |
           echo "Esperando aprobación para workflow ID: ${{ github.run_id }}..."
       
@@ -433,10 +434,4 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*🔗 Ver ejecución:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=tfvars.json
-      - name: Terraform Output
-        id: TerraformOutput
-        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
-    outputs:
-      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
+
