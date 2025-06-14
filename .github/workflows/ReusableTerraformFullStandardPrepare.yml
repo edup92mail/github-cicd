@@ -5,10 +5,6 @@ on:
       Path:
         required: true
         type: string
-      Runner:
-        required: false
-        type: string
-        default: "ubuntu-latest"
       Stage:
         required: true
         type: string
@@ -26,7 +22,7 @@ on:
 jobs:
 
   ParseConfig:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       id-token: write
       contents: read 
@@ -382,9 +378,10 @@ jobs:
                     elements:
                       - type: text
                         text: ${{ env.terraform_plan }}
-      - name: Wait for approval
-        uses: jbergknoff/github-action-wait-for-terraform-plan-approval@v1
-        with:
-          command: wait
-          plan_id: ${{steps.submit_plan.outputs.plan_id}}
-          timeout_seconds: 600
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file=tfvars.json
+      - name: Terraform Output
+        id: TerraformOutput
+        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
+    outputs:
+      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
