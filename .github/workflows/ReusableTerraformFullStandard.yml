@@ -331,7 +331,7 @@ jobs:
       - name: Submit Workflow id to Dynamodb
         run: |
           aws dynamodb put-item \
-            --table-name workflow_approvals \
+            --table-name Tfapprobers \
             --item "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}, \"status\": {\"S\": \"PENDING\"}}"
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
