@@ -334,7 +334,6 @@ jobs:
     #      cat plan_output.txt >> $GITHUB_STEP_SUMMARY
     #      echo '```' >> $GITHUB_STEP_SUMMARY
       - name: Get Terraform diff
-        if: steps.plan.outputs.exitcode == 2
         id: tf-diff
         run: |
           terraform show -no-color tfplan > terraform_plan.txt
