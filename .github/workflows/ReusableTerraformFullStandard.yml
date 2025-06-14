@@ -112,7 +112,7 @@ jobs:
         echo "✅ Environment '$ENVIRONMENT' is valid"
         echo "✅ Stage '$STAGE' is valid"
   ExtractConfig:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       contents: read 
     defaults:
@@ -153,7 +153,7 @@ jobs:
       CiCdDeployKeys: ${{ steps.CiCdJson.outputs.DEPLOYKEYS }}
 
   ParseSShKey:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       contents: read
     defaults:
@@ -203,7 +203,7 @@ jobs:
           rm -f decoded_key
 
   CreateTfFiles:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       contents: read 
     defaults:
@@ -268,7 +268,7 @@ jobs:
             variables.tf
 
   Apply:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       id-token: write
       contents: read 
