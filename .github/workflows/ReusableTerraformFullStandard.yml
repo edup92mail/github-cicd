@@ -5,10 +5,6 @@ on:
       Path:
         required: true
         type: string
-      Runner:
-        required: false
-        type: string
-        default: "ubuntu-latest"
       Stage:
         required: true
         type: string
@@ -26,7 +22,7 @@ on:
 jobs:
 
   ParseConfig:
-    runs-on: ${{ inputs.Runner }}
+    runs-on: "ubuntu-latest"
     permissions:
       id-token: write
       contents: read 
@@ -324,61 +320,110 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: |
-          terraform plan -var-file=tfvars.json -no-color | tee full_plan.txt
-          head -c 3000 full_plan.txt > short_plan.txt
-          PLAN=$(cat short_plan.txt)
-          MSG="*📄 Terraform Plan (resumen):*\n\`\`\`\n$PLAN\n\`\`\`"
-          echo "msg=$(jq -Rs . <<< \"$MSG\")" >> $GITHUB_OUTPUT
-
+        run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=tfplan
         timeout-minutes: 1
+      - name: Get Terraform diff
+        id: tf-diff
+        run: |
+          terraform show -no-color tfplan > tfdiff.txt
+          sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
+          echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
+      - name: Submit Workflow id to Dynamodb
+        run: |
+          aws dynamodb put-item \
+            --table-name workflow_approvals \
+            --item "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}, \"status\": {\"S\": \"PENDING\"}}"
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: "https://hooks.slack.com/services/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"
           webhook-type: incoming-webhook
           payload: |
-            {
-              "text": "🚀 Terraform deployment report",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "🚀 Terraform Deployment",
-                    "emoji": true
-                  }
-                },
-                {
-                  "type": "section",
-                  "fields": [
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🔧 Proyecto:*\n${{ needs.ExtractConfig.outputs.Project }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*📦 Repositorio:*\n${{ github.repository }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🌍 Environment:*\n${{ inputs.Environment }}"
-                    },
-                    {
-                      "type": "mrkdwn",
-                      "text": "*🗂️ Stage:*\n${{ inputs.Stage }}"
-                    }
-                  ]
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
-                  }
-                }
-              ]
-            }
+            text: "🚀 Terraform deployment report"
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "🚀 Terraform Deployment"
+                  emoji: true
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🔧 Proyecto:* ${{ needs.ExtractConfig.outputs.Project }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*📦 Repositorio:* ${{ github.repository }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🌍 Environment:* ${{ inputs.Environment }}"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*🗂️ Stage:* ${{ inputs.Stage }}"
+              - type: rich_text
+                elements:
+                  - type: rich_text_section
+                    elements:
+                      - type: text
+                        text: Terraform Plan Output
+                        style:
+                          bold: true
+                  - type: rich_text_preformatted
+                    elements:
+                      - type: text
+                        text: ${{ env.TFDIFF }}
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
+              - type: button
+                text:
+                  type: plain_text
+                  text: "✅ *Aprobar Job?"
+                url: "https://mi-api.com/approve?workflow_id=${{ github.run_id }}"
+                            
+      - name: Waiter
+        run: 
+        
+        #!/bin/bash
+
+SLACK_WEBHOOK_URL="https://hooks.slack.com/services/XXX/YYY/ZZZ"
+WORKFLOW_ID="deploy-$(date +%s)"
+API_ENDPOINT="https://mi-api.com/approve?workflow_id=$WORKFLOW_ID"
+
+# Insertar estado inicial
+aws dynamodb put-item \
+  --table-name workflow_approvals \
+  --item "{\"workflow_id\": {\"S\": \"$WORKFLOW_ID\"}, \"status\": {\"S\": \"PENDING\"}}"
+
+# Enviar mensaje a Slack
+curl -X POST -H 'Content-type: application/json' --data "{
+  \"blocks\": [
+    {
+      \"type\": \"section\",
+      \"text\": {
+        \"type\": \"mrkdwn\",
+        \"text\": \"⚠️ El workflow *$WORKFLOW_ID* está pendiente de aprobación. ¿Deseas continuar?\"
+      }
+    },
+    {
+      \"type\": \"actions\",
+      \"elements\": [
+        {
+          \"type\": \"button\",
+          \"text\": {
+            \"type\": \"plain_text\",
+            \"text\": \"✅ Aprobar\"
+          },
+          \"url\": \"$API_ENDPOINT\"
+        }
+      ]
+    }
+  ]
+}" $SLACK_WEBHOOK_URL
+
       - name: Terraform Apply
         run: terraform apply -auto-approve -var-file=tfvars.json
       - name: Terraform Output
