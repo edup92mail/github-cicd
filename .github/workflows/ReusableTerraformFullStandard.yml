@@ -331,7 +331,7 @@ jobs:
         uses: slackapi/slack-github-action@v2.1.0
         id: SlackMsgNewCiCd
         with:
-          token: "xoxb-9033139688231-9071434370640-OVTgXxATy3U2VvyDs40jJioC"
+          token: "xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
           method: chat.postMessage
           payload: |
             channel: "C0923CDTJFJ"
@@ -375,9 +375,9 @@ jobs:
       - name: Wait for approbal
         run: |
 
-          SLACK_TOKEN="xoxb-9033139688231-9071434370640-OVTgXxATy3U2VvyDs40jJioC"
+          SLACK_TOKEN="xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
           CHANNEL_ID="C0923CDTJFJ"
-          TIMEOUT=60     # en segundos
+          TIMEOUT=300     # en segundos
           INTERVAL=5     # segundos
           START_TIME=$(date +%s)
 
