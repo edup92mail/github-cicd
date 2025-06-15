@@ -339,6 +339,8 @@ jobs:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
 
+          TFDIFF_ESCAPED=$(echo "$TFDIFF" | jq -Rs . | sed 's/^"//' | sed 's/"$//')
+
           # Post message to Slack
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
@@ -387,7 +389,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "```'"$TFDIFF"'```"
+                    "text": "```'"$TFDIFF_ESCAPED"'```"
                   }
                 },
                 {
@@ -459,7 +461,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "```'"$TFDIFF"'```"
+                  "text": "```'"$TFDIFF_ESCAPED"'```"
                 }
               },
               {
