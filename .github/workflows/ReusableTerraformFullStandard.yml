@@ -358,7 +358,6 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*Terraform Plan Output:*"
-
               - type: actions
                 elements:
                   - type: button
@@ -367,10 +366,10 @@ jobs:
                       text: "🔗 View full Workflow Job"
                       emoji: true
                     url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  - type: section
-                    text:
-                      type: mrkdwn
-                      text: "✅ To approbe Job answer ok to this Threat"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "✅ To approve Job answer `ok` to this thread"
       - name: Wait for approbal
         run: |
 
