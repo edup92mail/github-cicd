@@ -323,37 +323,29 @@ jobs:
         run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=tfplan
         timeout-minutes: 1
       - name: Get Terraform diff
-        id: tf-diff
         run: |
           terraform show -no-color tfplan > tfdiff.txt
           sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
           echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
-      - name: Submit Workflow id to Dynamodb
-        run: |
-          aws dynamodb put-item \
-            --table-name Tfapprober \
-            --item "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}, \"status\": {\"S\": \"PENDING\"}}"
       - name: Enviar mensaje a Slack
         uses: slackapi/slack-github-action@v2.1.0
+        id: SlackMsgNewCiCd
         with:
-          webhook: "https://hooks.slack.com/services/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"
-          webhook-type: incoming-webhook
+          token: "xoxb-9033139688231-9071434370640-OVTgXxATy3U2VvyDs40jJioC"
+          method: chat.postMessage
           payload: |
-            text: "🚀 Terraform deployment report"
+            channel: "C0923CDTJFJ"
+            text: "GitHub Action"
             blocks:
               - type: header
                 text:
                   type: plain_text
-                  text: "🚀 Terraform Deployment"
+                  text: "🚀 Terraform CiCd for Project ${{ needs.ExtractConfig.outputs.Project }}"
                   emoji: true
               - type: section
                 text:
                   type: mrkdwn
-                  text: "*🔧 Proyecto:* ${{ needs.ExtractConfig.outputs.Project }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*📦 Repositorio:* ${{ github.repository }}"
+                  text: "*📦 Repository:* ${{ github.repository }}"
               - type: section
                 text:
                   type: mrkdwn
@@ -362,18 +354,12 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*🗂️ Stage:* ${{ inputs.Stage }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*🗂️ Workflow Id:* ${{ github.run_id }}"
               - type: rich_text
                 elements:
-                  - type: rich_text_section
-                    elements:
-                      - type: text
-                        text: Terraform Plan Output
-                        style:
-                          bold: true
+                  - type: section
+                    text:
+                      type: mrkdwn
+                      text: "*🌱 Terraform Plan Output:*\n"
                   - type: rich_text_preformatted
                     elements:
                       - type: text
@@ -383,64 +369,42 @@ jobs:
                   - type: button
                     text:
                       type: plain_text
-                      text: "🔗 Ver job completo"
+                      text: "🔗 View full Workflow Job"
                       emoji: true
                     url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                  - type: button
+                  - type: section
                     text:
-                      type: plain_text
-                      text: "✅ Aprobar Job"
-                      emoji: true
-                    url: "https://63tc2ts3arjwah7as5gllhrviq0qogeh.lambda-url.eu-west-1.on.aws?workflow_id=${{ github.run_id }}"
-
+                      type: mrkdwn
+                      text: "✅ To approbe Job answer ok to this Threat"
       - name: Wait for approbal
-        id: wait_approval
-        continue-on-error: true
         run: |
-          echo "Esperando aprobación para workflow ID: ${{ github.run_id }}..."
-      
-          for ((i=1; i<=6; i++)); do
-              STATUS=$(aws dynamodb get-item \
-                --table-name Tfapprober \
-                --key "{\"workflow_id\": {\"S\": \"${{ github.run_id }}\"}}" \
-                --query "Item.status.S" \
-                --output text 2>/dev/null)
-      
-              if [[ "$STATUS" == "OK" ]]; then
-                  echo "✅ Aprobado. Continuando..."
-                  break
-              fi
-      
-              echo "⏳ Estado actual: $STATUS (intento $i/6)"
-              sleep 5
-          done
-      
-          if [[ "$STATUS" != "OK" ]]; then
-              echo "❌ Aprobación no recibida. Abortando."
+
+          SLACK_TOKEN="xoxb-9033139688231-9071434370640-OVTgXxATy3U2VvyDs40jJioC"
+          CHANNEL_ID="C0923CDTJFJ"
+          TIMEOUT=60     # en segundos
+          INTERVAL=5     # segundos
+          START_TIME=$(date +%s)
+
+          # Esperar a ver un "ok"
+          while true; do
+            sleep "$INTERVAL"
+            NOW=$(date +%s)
+            ELAPSED=$((NOW - START_TIME))
+
+            if [[ "$ELAPSED" -ge "$TIMEOUT" ]]; then
+              echo "⏰ Tiempo de espera agotado sin aprobación"
               exit 1
-          fi
-      - name: Notificar cancelación por falta de aprobación
-        if: steps.wait_approval.outcome == 'failure'
-        uses: slackapi/slack-github-action@v2.1.0
-        with:
-          webhook: "https://hooks.slack.com/services/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"
-          webhook-type: incoming-webhook
-          payload: |
-            blocks:
-              - type: header
-                text:
-                  type: plain_text
-                  text: "❌ Workflow cancelado por timeout en approbal"
-                  emoji: true
-      - name: Forzar cancelación si no hay aprobación
-        if: steps.wait_approval.outcome == 'failure'
-        run: |
-          echo "🛑 Deteniendo ejecución tras notificación de falta de aprobación."
-          exit 1
-      - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=tfvars.json
-      - name: Terraform Output
-        id: TerraformOutput
-        run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
-    outputs:
-      TerraformOutput: ${{ steps.TerraformOutput.outputs.TerraformOutput}}
+            fi
+
+            RESPONSES=$(curl -s -G "https://slack.com/api/conversations.replies" \
+              -H "Authorization: Bearer $SLACK_TOKEN" \
+              --data-urlencode "channel=$CHANNEL_ID" \
+              --data-urlencode "ts=${{ steps.SlackMsgNewCiCd.outputs.ts }}")
+
+            if echo "$RESPONSES" | jq -r '.messages[]?.text' | grep -i -q '^ok$'; then
+              echo "🟢 Aprobación recibida. Continuando..."
+              break
+            fi
+          done
+      - name: Test
+        run: echo "ok"
