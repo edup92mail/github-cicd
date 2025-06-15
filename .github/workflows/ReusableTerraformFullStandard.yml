@@ -370,6 +370,8 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "✅ To approve Job answer `ok` to this thread"
+      - name: Debug Slack Output
+        run: echo "${{ steps.SlackMsgNewCiCd.outputs.response }}"
       - name: Wait for approbal
         run: |
 
