@@ -378,16 +378,18 @@ jobs:
                     elements:
                       - type: text
                         text: ${{ env.TFDIFF }}
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "🔗 *Ver job completo:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Haz clic aquí>"
               - type: actions
                 elements:
                   - type: button
                     text:
                       type: plain_text
-                      text: "✅ Aprobar Job"
+                      text: "🔗 *Ver job completo:*"
+                      emoji: true
+                    url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: "✅ *Aprobar Job*"
                       emoji: true
                     url: "https://63tc2ts3arjwah7as5gllhrviq0qogeh.lambda-url.eu-west-1.on.aws?workflow_id=${{ github.run_id }}"
 
