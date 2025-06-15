@@ -377,34 +377,129 @@ jobs:
       - name: Debug SlackMsgNewCiCd Output
         run: echo "${{ steps.SlackMsgNewCiCd.outputs.response }}"
       - name: Wait for approbal
+        continue-on-error: true
         run: |
 
           SLACK_TOKEN="xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
           CHANNEL_ID="C0923CDTJFJ"
-          TIMEOUT=300     # en segundos
-          INTERVAL=5     # segundos
-          START_TIME=$(date +%s)
+          PROJECT="${{ needs.ExtractConfig.outputs.Project }}"
+          REPO="${{ github.repository }}"
+          ENVIRONMENT="${{ inputs.Environment }}"
+          STAGE="${{ inputs.Stage }}"
+          TFDIFF="${{ env.TFDIFF }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # Esperar a ver un "ok"
-          while true; do
-            sleep "$INTERVAL"
-            NOW=$(date +%s)
-            ELAPSED=$((NOW - START_TIME))
+          # Post message
 
-            if [[ "$ELAPSED" -ge "$TIMEOUT" ]]; then
-              echo "⏰ Tiempo de espera agotado sin aprobación"
-              exit 1
-            fi
+          CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
+          -H "Authorization: Bearer $SLACK_TOKEN" \
+          -H "Content-type: application/json" \
+          --data '{
+            "channel": "'"$CHANNEL_ID"'",
+            "text": "GitHub Action",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 Terraform CiCd for Project '"$PROJECT"'",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*📦 Repository:* '"$REPO"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🌍 Environment:* '"$ENVIRONMENT"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🗂️ Stage:* '"$STAGE"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Terraform Plan Output:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "```'"$TFDIFF"'```"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "🔗 View full Workflow Job",
+                      "emoji": true
+                    },
+                    "url": "'"$RUN_URL"'"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ To approve Job answer `ok` to this thread"
+                }
+              }
+            ]
+          }')
+
+          # 2. Capturar TS del mensaje
+          THREAD_TS=$(echo "$CICDMESSAGE" | jq -r '.ts')
+
+          if [[ -z "$THREAD_TS" || "$THREAD_TS" == "null" ]]; then
+            echo "❌ No se pudo obtener thread_ts del mensaje"
+            exit 1
+          fi
+          
+          for i in {1..60}; do
+            sleep 3
 
             RESPONSES=$(curl -s -G "https://slack.com/api/conversations.replies" \
               -H "Authorization: Bearer $SLACK_TOKEN" \
               --data-urlencode "channel=$CHANNEL_ID" \
-              --data-urlencode "ts=${{ steps.SlackMsgNewCiCd.outputs.ts }}")
+              --data-urlencode "ts=$THREAD_TS")
 
             if echo "$RESPONSES" | jq -r '.messages[]?.text' | grep -i -q '^ok$'; then
               echo "🟢 Aprobación recibida. Continuando..."
-              break
+              exit 0
             fi
           done
+
+          echo "⏰ Tiempo de espera agotado sin aprobación"
+
+          # Notificar en Slack el timeout (como reply al hilo original)
+          curl -s -X POST "https://slack.com/api/chat.postMessage" \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-type: application/json" \
+            --data '{
+              "channel": "'"$CHANNEL_ID"'",
+              "thread_ts": "'"${{ steps.SlackMsgNewCiCd.outputs.ts }}"'",
+              "text": "⏰ *Timeout de aprobación superado.* El despliegue ha sido cancelado."
+            }' > /dev/null
+
+          exit 1
+
       - name: Test
         run: echo "ok"
