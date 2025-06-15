@@ -414,6 +414,9 @@ jobs:
               ]
             }')
 
+          echo "🔍 CICDMESSAGE (respuesta de Slack):"
+          echo "$CICDMESSAGE" | jq .
+
           THREAD_TS=$(echo "$CICDMESSAGE" | jq -r '.ts')
 
           if [[ -z "$THREAD_TS" || "$THREAD_TS" == "null" ]]; then
