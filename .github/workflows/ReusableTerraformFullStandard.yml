@@ -327,57 +327,7 @@ jobs:
           terraform show -no-color tfplan > tfdiff.txt
           sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
           echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
-      - name: Enviar mensaje a Slack
-        uses: slackapi/slack-github-action@v2.1.0
-        id: SlackMsgNewCiCd
-        with:
-          token: "xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
-          method: chat.postMessage
-          payload: |
-            channel: "C0923CDTJFJ"
-            text: "GitHub Action"
-            blocks:
-              - type: header
-                text:
-                  type: plain_text
-                  text: "🚀 Terraform CiCd for Project ${{ needs.ExtractConfig.outputs.Project }}"
-                  emoji: true
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*📦 Repository:* ${{ github.repository }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*🌍 Environment:* ${{ inputs.Environment }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*🗂️ Stage:* ${{ inputs.Stage }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "*Terraform Plan Output:*"
-              - type: rich_text_preformatted
-                elements:
-                  - type: text
-                    text: ${{ env.TFDIFF }}
-              - type: actions
-                elements:
-                  - type: button
-                    text:
-                      type: plain_text
-                      text: "🔗 View full Workflow Job"
-                      emoji: true
-                    url: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-              - type: section
-                text:
-                  type: mrkdwn
-                  text: "✅ To approve Job answer `ok` to this thread"
-      - name: Debug SlackMsgNewCiCd Output
-        run: echo "${{ steps.SlackMsgNewCiCd.outputs.response }}"
       - name: Wait for approbal
-        continue-on-error: true
         run: |
 
           SLACK_TOKEN="xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
