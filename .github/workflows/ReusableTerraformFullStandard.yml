@@ -414,6 +414,78 @@ jobs:
               ]
             }')
 
+          echo "📤 Payload que se va a enviar:"
+          echo '{
+            "channel": "'"$CHANNEL_ID"'",
+            "text": "GitHub Action",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 Terraform CiCd for Project '"$PROJECT"'",
+                  "emoji": true
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*📦 Repository:* '"$REPO"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🌍 Environment:* '"$ENVIRONMENT"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🗂️ Stage:* '"$STAGE"'"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Terraform Plan Output:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "```'"$TFDIFF"'```"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "🔗 View full Workflow Job",
+                      "emoji": true
+                    },
+                    "url": "'"$RUN_URL"'"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ To approve Job answer `ok` to this thread"
+                }
+              }
+            ]
+          }'
+
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
           echo "$CICDMESSAGE" | jq .
 
