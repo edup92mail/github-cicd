@@ -267,7 +267,7 @@ jobs:
             tfvars.json
             variables.tf
 
-  Apply:
+  Plan:
     runs-on: "ubuntu-latest"
     permissions:
       id-token: write
@@ -320,14 +320,34 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=tfplan
+        run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=Tfplan
         timeout-minutes: 1
-      - name: Get Terraform diff
-        id: tf-diff
-        run: |
-          terraform show -no-color tfplan > tfdiff.txt
-          sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
-          echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
+      - name: Upload Terraform config files
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tfplan
+          path: Tfplan
+
+  Bot:
+    runs-on: "ubuntu-latest"
+    permissions:
+      id-token: write
+      contents: read 
+      issues: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ParseConfig, ExtractConfig, ParseSShKey, CreateTfFiles, Plan]
+    steps:
+      - name: Download Terraform config files
+        uses: actions/download-artifact@v4
+        with:
+          name: TfFiles
+      - name: Download DeployKeys
+        uses: actions/download-artifact@v4
+        with:
+          name: DeployKeys
+          path: ./deploykeys
       - name: Submit Workflow id to Dynamodb
         run: |
           aws dynamodb put-item \
@@ -392,7 +412,6 @@ jobs:
                       text: "✅ Aprobar Job"
                       emoji: true
                     url: "https://63tc2ts3arjwah7as5gllhrviq0qogeh.lambda-url.eu-west-1.on.aws?workflow_id=${{ github.run_id }}"
-
       - name: Wait for approbal
         id: wait_approval
         continue-on-error: true
@@ -437,8 +456,57 @@ jobs:
         run: |
           echo "🛑 Deteniendo ejecución tras notificación de falta de aprobación."
           exit 1
+
+  Apply:
+    runs-on: "ubuntu-latest"
+    permissions:
+      id-token: write
+      contents: read 
+      issues: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.Path }}
+    needs: [ParseConfig, ExtractConfig, ParseSShKey, CreateTfFiles, Plan, Bot]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.ExtractConfig.outputs.CiCdRole }}
+          aws-region: ${{ needs.ExtractConfig.outputs.CiCdRegion }}
+      - name: Download Terraform config files
+        uses: actions/download-artifact@v4
+        with:
+          name: TfFiles
+      - name: Download DeployKeys
+        uses: actions/download-artifact@v4
+        with:
+          name: DeployKeys
+          path: ./deploykeys
+      - name: Read all private keys into env var
+        id: read_ssh_keys
+        run: |
+          KEY_DATA=""
+          for f in deploykeys/*.pem; do
+            [ -f "$f" ] || continue
+            KEY=$(cat "$f")
+            KEY_DATA="${KEY_DATA}${KEY}"$'\n\n'
+          done
+          echo "ALL_SSH_KEYS<<EOF" >> $GITHUB_ENV
+          echo "$KEY_DATA" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+      - name: Load SSH keys into agent
+        if: env.ALL_SSH_KEYS != ''
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ env.ALL_SSH_KEYS }}
+      - name: Terraform Init
+        run: terraform init -backend-config=backend.tfbackend
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var-file=tfvars.json
+        run: terraform apply -auto-approve tfplan
       - name: Terraform Output
         id: TerraformOutput
         run: TerraformOutput=$(terraform output -json | jq -c 'with_entries(.value = .value.value)') ; echo "TerraformOutput=$TerraformOutput" >> $GITHUB_OUTPUT
