@@ -358,10 +358,7 @@ jobs:
                 text:
                   type: mrkdwn
                   text: "*Terraform Plan Output:*"
-              - type: rich_text_preformatted
-                elements:
-                  - type: text
-                    text: ${{ env.TFDIFF }}
+
               - type: actions
                 elements:
                   - type: button
