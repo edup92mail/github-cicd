@@ -327,7 +327,7 @@ jobs:
           terraform show -no-color tfplan > tfdiff.txt
           sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
           echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
-      - name: Wait for approbal
+      - name: Send Approbal to Slack and Wait for response
         env:
           SLACK_TOKEN: "xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
           CHANNEL_ID: "C0923CDTJFJ"
@@ -339,94 +339,88 @@ jobs:
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
 
-          TFDIFF_ESCAPED=$(printf "%s" "$TFDIFF")
 
-          JSON_PAYLOAD=$(jq -n \
-            --arg channel "$CHANNEL_ID" \
-            --arg text "GitHub Action" \
-            --arg project "$PROJECT" \
-            --arg repo "$REPO" \
-            --arg env "$ENVIRONMENT" \
-            --arg stage "$STAGE" \
-            --arg tfdiff "```\n$TFDIFF_ESCAPED\n```" \
-            --arg url "$RUN_URL" \
-            '{
-              channel: $channel,
-              text: $text,
-              blocks: [
-                {
-                  type: "header",
-                  text: {
-                    type: "plain_text",
-                    text: "🚀 Terraform CiCd for Project \($project)",
-                    emoji: true
-                  }
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: "*📦 Repository:* \($repo)"
-                  }
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: "*🌍 Environment:* \($env)"
-                  }
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: "*🗂️ Stage:* \($stage)"
-                  }
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: "*Terraform Plan Output:*"
-                  }
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: $tfdiff
-                  }
-                },
-                {
-                  type: "actions",
-                  elements: [
-                    {
-                      type: "button",
-                      text: {
-                        type: "plain_text",
-                        text: "🔗 View full Workflow Job",
-                        emoji: true
-                      },
-                      url: $url
-                    }
-                  ]
-                },
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: "✅ To approve Job answer `ok` to this thread"
-                  }
+          TFDIFF_ESCAPED="$TFDIFF"
+
+          # Construimos el JSON en una variable
+          read -r -d '' PAYLOAD <<EOF
+          {
+            "channel": "${CHANNEL_ID}",
+            "text": "GitHub Action",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "🚀 Terraform CiCd for Project ${PROJECT}",
+                  "emoji": true
                 }
-              ]
-            }')
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*📦 Repository:* ${REPO}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🌍 Environment:* ${ENVIRONMENT}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🗂️ Stage:* ${STAGE}"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Terraform Plan Output:*"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*\`\`\`*\n${TFDIFF_ESCAPED}\n*\`\`\`*"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "🔗 View full Workflow Job",
+                      "emoji": true
+                    },
+                    "url": "${RUN_URL}"
+                  }
+                ]
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "✅ To approve Job answer \`ok\` to this thread"
+                }
+              }
+            ]
+          }
+          EOF
 
           # Post message to Slack
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
-            -H "Content-type: application/json" \
-            --data "$JSON_PAYLOAD"
-          )
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "${PAYLOAD}")
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
           echo "$CICDMESSAGE" | jq .
@@ -458,11 +452,11 @@ jobs:
 
           curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
-            -H "Content-type: application/json" \
+            -H "Content-Type: application/json; charset=utf-8" \
             --data '{
               "channel": "'"$CHANNEL_ID"'",
               "thread_ts": "'"$THREAD_TS"'",
-              "text": "@everyone ⏰ *Approbal Timeout, Job cancelled"
+              "text": "@everyone ⏰ *Approbal Timeout, Job cancelled*"
             }' > /dev/null
 
           exit 1
