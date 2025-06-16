@@ -342,18 +342,74 @@ jobs:
 
           # Post message to Slack
 
-          #ESCAPED_DIFF=$(jq -R -s . <<<"$TFDIFF")
-
-          ESCAPED_DIFF=$( 
-            echo "$TFDIFF" \
-            | sed '/^ghadelimiter_/d' \
-            | jq -R -s .
-          )
+          ESCAPED_DIFF=$(jq -R -s . <<<"$TFDIFF")
 
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
-              --data "{\"channel\":\"$CHANNEL_ID\",\"text\":\"Resumen del diff de Terraform\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":$ESCAPED_DIFF}}]}"
+            --data "{
+              "channel": "'"$CHANNEL_ID"'",
+              "text": "GitHub Action",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🚀 Terraform CiCd for Project '"$PROJECT"'",
+                    "emoji": true
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*📦 Repository:* '"$REPO"'"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🌍 Environment:* '"$ENVIRONMENT"'"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*🗂️ Stage:* '"$STAGE"'"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Terraform Plan Output:*"
+                  }
+                },
+                {
+                  "type": "actions",
+                  "elements": [
+                    {
+                      "type": "button",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "🔗 View full Workflow Job",
+                        "emoji": true
+                      },
+                      "url": "'"$RUN_URL"'"
+                    }
+                  ]
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "✅ To approve Job answer `ok` to this thread"
+                  }
+                }
+              ]
+            }
           )
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
