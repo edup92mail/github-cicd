@@ -430,6 +430,16 @@ jobs:
 
             if echo "$RESPONSES" | jq -r '.messages[]?.text' | grep -i -q '^ok$'; then
               echo "🟢 Got Approbal"
+
+              curl -s -X POST "https://slack.com/api/chat.postMessage" \
+                -H "Authorization: Bearer $SLACK_TOKEN" \
+                -H "Content-Type: application/json; charset=utf-8" \
+                --data '{
+                  "channel": "'"$CHANNEL_ID"'",
+                  "thread_ts": "'"$THREAD_TS"'",
+                  "text": "@everyone ⏰ *Got Approbal, Job continues*"
+                }' > /dev/null
+
               exit 0
             fi
           done
