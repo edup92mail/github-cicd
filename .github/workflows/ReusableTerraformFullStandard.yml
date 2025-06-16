@@ -354,12 +354,28 @@ jobs:
 
           ESCAPED_DIFF=$(printf '%s\n' "$TFDIFF" | jq -R -s @json)
 
+          PAYLOAD=$(jq -n --arg channel "$CHANNEL_ID" --arg text "$ESCAPED_DIFF" '
+            {
+              channel: $channel,
+              text: "Resumen del diff de Terraform",
+              blocks: [
+                {
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: $text
+                  }
+                }
+              ]
+            }
+          ')
+
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
-            --data "{\"channel\":\"$CHANNEL_ID\",\"text\":\"Resumen del diff de Terraform\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":$ESCAPED_DIFF}}]}"
+            --data "$PAYLOAD"
           )
-          
+
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
           echo "$CICDMESSAGE" | jq .
 
@@ -389,7 +405,7 @@ jobs:
                 --data '{
                   "channel": "'"$CHANNEL_ID"'",
                   "thread_ts": "'"$THREAD_TS"'",
-                  "text": "@everyone 🟢 *Got Approbal, Job continues*"
+                  "text": "@everyone ⏰ *Got Approbal, Job continues*"
                 }' > /dev/null
 
               exit 0
