@@ -409,7 +409,7 @@ jobs:
                   }
                 }
               ]
-            }
+            }"
           )
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
