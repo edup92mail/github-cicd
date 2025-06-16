@@ -325,8 +325,18 @@ jobs:
       - name: Terraform diff
         id: TerraformDiff
         run: |
+          terraform show -json plan.tfplan > plan.json
+
+          # Extrae sólo los cambios con jq (puedes personalizar el filtro)
+          DIFF_SUMMARY=$(jq -r '
+            .resource_changes[]
+            | select(.change.actions | index("create") or index("update") or index("delete"))
+            | "- " + .address + " (" + (.change.actions | join(", ")) + ")"
+            ' plan.json)
+
+          # Exportamos el summary como output
           echo "diff<<EOF" >> $GITHUB_OUTPUT
-          terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
+          echo "$DIFF_SUMMARY" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       - name: Send Approbal to Slack and Wait for response
         env:
