@@ -341,80 +341,92 @@ jobs:
 
           TFDIFF_ESCAPED=$(printf "%s" "$TFDIFF")
 
-          # Post message to Slack
-          CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
-            -H "Authorization: Bearer $SLACK_TOKEN" \
-            -H "Content-type: application/json" \
-            --data '{
-              "channel": "'"$CHANNEL_ID"'",
-              "text": "GitHub Action",
-              "blocks": [
+          JSON_PAYLOAD=$(jq -n \
+            --arg channel "$CHANNEL_ID" \
+            --arg text "GitHub Action" \
+            --arg project "$PROJECT" \
+            --arg repo "$REPO" \
+            --arg env "$ENVIRONMENT" \
+            --arg stage "$STAGE" \
+            --arg tfdiff "```\n$TFDIFF_ESCAPED\n```" \
+            --arg url "$RUN_URL" \
+            '{
+              channel: $channel,
+              text: $text,
+              blocks: [
                 {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "🚀 Terraform CiCd for Project '"$PROJECT"'",
-                    "emoji": true
+                  type: "header",
+                  text: {
+                    type: "plain_text",
+                    text: "🚀 Terraform CiCd for Project \($project)",
+                    emoji: true
                   }
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*📦 Repository:* '"$REPO"'"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*📦 Repository:* \($repo)"
                   }
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*🌍 Environment:* '"$ENVIRONMENT"'"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*🌍 Environment:* \($env)"
                   }
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*🗂️ Stage:* '"$STAGE"'"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*🗂️ Stage:* \($stage)"
                   }
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*Terraform Plan Output:*"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "*Terraform Plan Output:*"
                   }
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "```'"$TFDIFF_ESCAPED"'```"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: $tfdiff
                   }
                 },
                 {
-                  "type": "actions",
-                  "elements": [
+                  type: "actions",
+                  elements: [
                     {
-                      "type": "button",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "🔗 View full Workflow Job",
-                        "emoji": true
+                      type: "button",
+                      text: {
+                        type: "plain_text",
+                        text: "🔗 View full Workflow Job",
+                        emoji: true
                       },
-                      "url": "'"$RUN_URL"'"
+                      url: $url
                     }
                   ]
                 },
                 {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "✅ To approve Job answer `ok` to this thread"
+                  type: "section",
+                  text: {
+                    type: "mrkdwn",
+                    text: "✅ To approve Job answer `ok` to this thread"
                   }
                 }
               ]
             }')
+
+          # Post message to Slack
+          CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-type: application/json" \
+            --data "$JSON_PAYLOAD"
+          )
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
           echo "$CICDMESSAGE" | jq .
