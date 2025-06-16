@@ -326,8 +326,7 @@ jobs:
         id: TerraformDiff
         run: |
           echo "diff<<EOF" >> $GITHUB_OUTPUT
-          #terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
-          terraform show -no-color plan.tfplan | sed '/^ghadelimiter_/d' >> $GITHUB_OUTPUT
+          terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       - name: Send Approbal to Slack and Wait for response
         env:
@@ -343,13 +342,13 @@ jobs:
 
           # Post message to Slack
 
-          ESCAPED_DIFF=$(jq -R -s . <<<"$TFDIFF")
+          #ESCAPED_DIFF=$(jq -R -s . <<<"$TFDIFF")
 
-          #ESCAPED_DIFF=$( 
-          #  echo "$TFDIFF" \
-          #  | sed '/^ghadelimiter_/d' \
-          #  | jq -R -s .
-          #)
+          ESCAPED_DIFF=$( 
+            echo "$TFDIFF" \
+            | sed '/^ghadelimiter_/d' \
+            | jq -R -s .
+          )
 
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
