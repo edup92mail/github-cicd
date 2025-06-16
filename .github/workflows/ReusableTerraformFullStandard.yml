@@ -342,6 +342,8 @@ jobs:
 
           # Post message to Slack
 
+          ESCAPED_DIFF=$(jq -R -s . <<<"$TFDIFF")
+
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
