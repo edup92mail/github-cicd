@@ -320,13 +320,14 @@ jobs:
         timeout-minutes: 1
       - name: Terraform Plan
         id: TerraformPlan
-        run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=tfplan
+        run: terraform plan -var-file=tfvars.json -no-color -input=false -detailed-exitcode -out=plan.tfplan
         timeout-minutes: 1
-      - name: Get Terraform diff
+      - name: Terraform diff
+        id: TerraformDiff
         run: |
-          terraform show -no-color tfplan > tfdiff.txt
-          sed -i '1{/^$/d}' tfdiff.txt  # Remove first empty line of file
-          echo "TFDIFF=$(jq --raw-input --slurp '.' < tfdiff.txt)" >> $GITHUB_ENV
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       - name: Send Approbal to Slack and Wait for response
         env:
           SLACK_TOKEN: "xoxb-9033139688231-9051357383573-5OpQ2bQKazhd2wXtxWIjmHGE"
@@ -335,7 +336,7 @@ jobs:
           REPO: ${{ github.repository }}
           ENVIRONMENT: ${{ inputs.Environment }}
           STAGE: ${{ inputs.Stage }}
-          TFDIFF: ${{ env.TFDIFF }}
+          TFDIFF: ${{ steps.TerraformDiff.outputs.diff }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         run: |
 
@@ -382,6 +383,13 @@ jobs:
                   "text": {
                     "type": "mrkdwn",
                     "text": "*Terraform Plan Output:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "```'"$TFDIFF"'```"
                   }
                 },
                 {
