@@ -416,89 +416,16 @@ jobs:
               ]
             }')
 
-          echo "📤 Payload que se va a enviar:"
-          echo '{
-            "channel": "'"$CHANNEL_ID"'",
-            "text": "GitHub Action",
-            "blocks": [
-              {
-                "type": "header",
-                "text": {
-                  "type": "plain_text",
-                  "text": "🚀 Terraform CiCd for Project '"$PROJECT"'",
-                  "emoji": true
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*📦 Repository:* '"$REPO"'"
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*🌍 Environment:* '"$ENVIRONMENT"'"
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*🗂️ Stage:* '"$STAGE"'"
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "*Terraform Plan Output:*"
-                }
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "```'"$TFDIFF_ESCAPED"'```"
-                }
-              },
-              {
-                "type": "actions",
-                "elements": [
-                  {
-                    "type": "button",
-                    "text": {
-                      "type": "plain_text",
-                      "text": "🔗 View full Workflow Job",
-                      "emoji": true
-                    },
-                    "url": "'"$RUN_URL"'"
-                  }
-                ]
-              },
-              {
-                "type": "section",
-                "text": {
-                  "type": "mrkdwn",
-                  "text": "✅ To approve Job answer `ok` to this thread"
-                }
-              }
-            ]
-          }'
-
-          echo "🔍 CICDMESSAGE (respuesta de Slack):"
-          echo "$CICDMESSAGE" | jq .
-
           THREAD_TS=$(echo "$CICDMESSAGE" | jq -r '.ts')
 
           if [[ -z "$THREAD_TS" || "$THREAD_TS" == "null" ]]; then
-            echo "❌ No se pudo obtener thread_ts del mensaje"
+            echo "❌ Cant find thread_ts"
             exit 1
           fi
 
           for i in {1..60}; do
+
+            echo "⌛ Waiting for approbal"
             sleep 3
 
             RESPONSES=$(curl -s -G "https://slack.com/api/conversations.replies" \
@@ -507,12 +434,12 @@ jobs:
               --data-urlencode "ts=$THREAD_TS")
 
             if echo "$RESPONSES" | jq -r '.messages[]?.text' | grep -i -q '^ok$'; then
-              echo "🟢 Aprobación recibida. Continuando..."
+              echo "🟢 Got Approbal"
               exit 0
             fi
           done
 
-          echo "⏰ Tiempo de espera agotado sin aprobación"
+          echo "⏰ Approbal Timeout"
 
           curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
@@ -520,7 +447,7 @@ jobs:
             --data '{
               "channel": "'"$CHANNEL_ID"'",
               "thread_ts": "'"$THREAD_TS"'",
-              "text": "⏰ *Timeout de aprobación superado.* El despliegue ha sido cancelado."
+              "text": "@everyone ⏰ *Approbal Timeout, Job cancelled"
             }' > /dev/null
 
           exit 1
