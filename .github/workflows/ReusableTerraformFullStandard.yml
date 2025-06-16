@@ -343,7 +343,7 @@ jobs:
           TFDIFF_ESCAPED="$TFDIFF"
 
           # Construimos el JSON en una variable
-          read -r -d '' PAYLOAD <<EOF
+          PAYLOAD=$(cat <<EOF
           {
             "channel": "${CHANNEL_ID}",
             "text": "GitHub Action",
@@ -388,7 +388,7 @@ jobs:
                 "type": "section",
                 "text": {
                   "type": "mrkdwn",
-                  "text": "*\`\`\`*\n${TFDIFF_ESCAPED}\n*\`\`\`*"
+                  "text": "```\\n${TFDIFF}\\n```"
                 }
               },
               {
@@ -415,6 +415,7 @@ jobs:
             ]
           }
           EOF
+          )
 
           # Post message to Slack
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
