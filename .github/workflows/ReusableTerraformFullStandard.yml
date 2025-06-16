@@ -325,18 +325,8 @@ jobs:
       - name: Terraform diff
         id: TerraformDiff
         run: |
-          terraform show -json plan.tfplan > plan.json
-
-          # Extrae sólo los cambios con jq (puedes personalizar el filtro)
-          DIFF_SUMMARY=$(jq -r '
-            .resource_changes[]
-            | select(.change.actions | index("create") or index("update") or index("delete"))
-            | "- " + .address + " (" + (.change.actions | join(", ")) + ")"
-            ' plan.json)
-
-          # Exportamos el summary como output
           echo "diff<<EOF" >> $GITHUB_OUTPUT
-          echo "$DIFF_SUMMARY" >> $GITHUB_OUTPUT
+          terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
       - name: Send Approbal to Slack and Wait for response
         env:
@@ -352,28 +342,10 @@ jobs:
 
           # Post message to Slack
 
-          ESCAPED_DIFF=$(printf '%s\n' "$TFDIFF" | jq -R -s @json)
-
-          PAYLOAD=$(jq -n --arg channel "$CHANNEL_ID" --arg text "$ESCAPED_DIFF" '
-            {
-              channel: $channel,
-              text: "Resumen del diff de Terraform",
-              blocks: [
-                {
-                  type: "section",
-                  text: {
-                    type: "mrkdwn",
-                    text: $text
-                  }
-                }
-              ]
-            }
-          ')
-
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
-            --data "$PAYLOAD"
+              --data "{\"channel\":\"$CHANNEL_ID\",\"text\":\"Resumen del diff de Terraform\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":$ESCAPED_DIFF}}]}")
           )
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
