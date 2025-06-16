@@ -345,7 +345,7 @@ jobs:
           CICDMESSAGE=$(curl -s -X POST "https://slack.com/api/chat.postMessage" \
             -H "Authorization: Bearer $SLACK_TOKEN" \
             -H "Content-Type: application/json; charset=utf-8" \
-              --data "{\"channel\":\"$CHANNEL_ID\",\"text\":\"Resumen del diff de Terraform\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":$ESCAPED_DIFF}}]}")
+              --data "{\"channel\":\"$CHANNEL_ID\",\"text\":\"Resumen del diff de Terraform\",\"blocks\":[{\"type\":\"section\",\"text\":{\"type\":\"mrkdwn\",\"text\":$ESCAPED_DIFF}}]}"
           )
 
           echo "🔍 CICDMESSAGE (respuesta de Slack):"
@@ -377,7 +377,7 @@ jobs:
                 --data '{
                   "channel": "'"$CHANNEL_ID"'",
                   "thread_ts": "'"$THREAD_TS"'",
-                  "text": "@everyone ⏰ *Got Approbal, Job continues*"
+                  "text": "@everyone 🟢 *Got Approbal, Job continues*"
                 }' > /dev/null
 
               exit 0
