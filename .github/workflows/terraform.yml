@@ -26,9 +26,9 @@ jobs:
       - name: Load Data Account config.json
         id: DATA_ACCOUNT
         run: |
-          echo "account_name=$(jq -r '.projects.${{ inputs.project }}.account_name' config.json)" >> $GITHUB_OUTPUT
-          echo "account_id=$(jq -r '.projects.${{ inputs.project }}.account_id' config.json)" >> $GITHUB_OUTPUT
-          echo "account_region=$(jq -r '.projects.${{ inputs.project }}.account_region' config.json)" >> $GITHUB_OUTPUT
+          echo "account_name=$(jq -r '.projects.${{ inputs.account }}.account_name' config.json)" >> $GITHUB_OUTPUT
+          echo "account_id=$(jq -r '.projects.${{ inputs.account }}.account_id' config.json)" >> $GITHUB_OUTPUT
+          echo "account_region=$(jq -r '.projects.${{ inputs.account }}.account_region' config.json)" >> $GITHUB_OUTPUT
       - name: Load Data Slack config.json
         id: DATA_SLACK
         run: |
