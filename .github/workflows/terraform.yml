@@ -1,12 +1,8 @@
-name: CiCd
-run-name: Deploy Product to CAMBIAME
+name: terraform
 
 on:
   workflow_call:
     inputs:
-      path:
-        required: true
-        type: string
       project:
         required: true
         type: string
