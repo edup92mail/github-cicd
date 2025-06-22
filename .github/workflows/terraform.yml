@@ -3,7 +3,7 @@ name: terraform
 on:
   workflow_call:
     inputs:
-      project:
+      path:
         required: true
         type: string
     outputs:
@@ -20,9 +20,6 @@ jobs:
     runs-on: "ubuntu-latest"
     permissions:
       contents: read
-    defaults:
-      run:
-        working-directory: ${{ inputs.path }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
