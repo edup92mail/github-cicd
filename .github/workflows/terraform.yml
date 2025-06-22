@@ -1,0 +1,334 @@
+name: CiCd
+run-name: Deploy Product to CAMBIAME
+
+on:
+  workflow_call:
+    inputs:
+      path:
+        required: true
+        type: string
+      project:
+        required: true
+        type: string
+    outputs:
+      TerraformOutput:
+        value: ${{ jobs.Terraform.outputs.TerraformOutput }}
+
+permissions:
+  id-token: write
+  contents: read
+      
+jobs:
+  
+  checkout:
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Load Data Account config.json
+        id: DATA_ACCOUNT
+        run: |
+          echo "account_name=$(jq -r '.projects.${{ inputs.project }}.account_name' config.json)" >> $GITHUB_OUTPUT
+          echo "account_id=$(jq -r '.projects.${{ inputs.project }}.account_id' config.json)" >> $GITHUB_OUTPUT
+          echo "account_region=$(jq -r '.projects.${{ inputs.project }}.account_region' config.json)" >> $GITHUB_OUTPUT
+      - name: Load Data Slack config.json
+        id: DATA_SLACK
+        run: |
+          echo "slack_bot_token=$(jq -r '.slack.bot_token' config.json)" >> $GITHUB_OUTPUT
+          echo "slack_channel_id=$(jq -r '.slack.channel_id' config.json)" >> $GITHUB_OUTPUT
+    outputs:
+      account_name: ${{ steps.DATA_ACCOUNT.outputs.account_name }}
+      account_id: ${{ steps.DATA_ACCOUNT.outputs.account_id }}
+      account_region: ${{ steps.DATA_ACCOUNT.outputs.account_region }}
+      slack_bot_token: ${{ steps.DATA_SLACK.outputs.slack_bot_token }}
+      slack_channel_id: ${{ steps.DATA_SLACK.outputs.slack_channel_id }}
+
+  artifact:
+    runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    needs: [checkout]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Generate backend.tfbackend
+        run: |
+          cat <<EOF > backend.tf
+            bucket = "${{ needs.checkout.outputs.account_id }}"
+            key    = "state.tfstate"
+            region = "${{ needs.checkout.outputs.account_region }}"
+          EOF
+      - name: Append Project String > variables.tfvars
+        run: echo "account_name = \"${{ needs.checkout.outputs.account_name }}\"" >> variables.tfvars
+      - name: Append Repo String > variables.tfvars
+        run: echo "repo_name = \"$(basename \"$GITHUB_REPOSITORY\")\"" >> variables.tfvars
+      - name: Load Deploy Keys
+        id: DEPLOY_KEYS
+        run: |
+          echo "keys<<EOF" >> $GITHUB_OUTPUT
+          for key in ./deploy_keys/*; do
+            cat "$key"
+            echo
+          done >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Cargar claves SSH en el agente
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ steps.DEPLOY_KEYS.outputs.keys }}
+      - name: Terraform Init
+        run: terraform init
+      - name: Upload Terraform files
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact
+          path: |
+            backend.tf
+            variables.tfvars
+            .terraform/
+            .terraform.lock.hcl
+
+  test:
+    runs-on: "ubuntu-latest"
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    needs: [checkout, artifact]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
+          aws-region: ${{ needs.checkout.outputs.account_region }}
+      - name: Restore artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact
+      - name: Terraform Validate
+        id: TERRAFORM_VALIDATE
+        run: terraform validate
+        timeout-minutes: 1
+      - name: Post failed to slack
+        uses: slackapi/slack-github-action@v2.1.0
+        if: steps.TERRAFORM_VALIDATE.outcome == 'failure'
+        with:
+          method: chat.postMessage
+          token: ${{ needs.checkout.outputs.slack_bot_token }}
+          payload: |
+            channel: ${{ needs.checkout.outputs.slack_channel_id }}
+            text: "Terraform Validate Failed"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "Terraform Validate Failed"
+      - name: Stop Run
+        if: steps.TERRAFORM_VALIDATE.outcome == 'failure'
+        run: |
+          echo "Terraform Validate failed, stopping Workflow"
+          exit 1
+
+  approbal:
+    runs-on: "ubuntu-latest"
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    needs: [checkout, artifact, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
+          aws-region: ${{ needs.checkout.outputs.account_region }}
+      - name: Restore artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact
+      - name: Terraform Plan
+        run: terraform plan -no-color -input=false -detailed-exitcode -out=plan.tfplan
+        timeout-minutes: 1
+      - name: Terraform diff
+        id: TERRAFORM_DIFF
+        run: |
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          terraform show -no-color plan.tfplan >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Post Approbal to Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        id: SLACK_APPROBAL
+        env:
+          ACCOUNT_NAME: ${{ needs.checkout.outputs.account_name }}
+          TERRAFORM_DIFF: ${{ steps.TERRAFORM_DIFF.outputs.diff }}
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          method: chat.postMessage
+          token: ${{ needs.checkout.outputs.slack_bot_token }}
+          payload: |
+            channel: ${{ needs.checkout.outputs.slack_channel_id }}
+            text: "Terraform Plan"
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "🚀 CiCd needs approbal for account '$ACCOUNT_NAME'"
+                  emoji: true
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*📦 Repository:* '$REPO'"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: |-
+                    *Terraform Plan Diff:*
+                    ```bash
+                    $TERRAFORM_DIFF
+                    ```
+              - type: actions
+                elements:
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: "🔗 View full Workflow Job"
+                      emoji: true
+                    url: "'$RUN_URL'"
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "✅ To approve Job answer `ok` to this thread"
+      - name: Wait for slack approbe
+        id: SLACK_WAITER
+        env:
+          CHANNEL_ID: ${{ needs.checkout.outputs.slack_channel_id }}
+          SLACK_TOKEN: ${{ needs.checkout.outputs.slack_bot_token }}
+          TS: ${{ steps.SLACK_APPROBAL.outputs.ts }}
+        run: |
+
+          for i in {1..60}; do
+
+            echo "⌛ Waiting for approbal"
+            sleep 3
+
+            WATCHER=$(curl -s -G "https://slack.com/api/conversations.replies" \
+              -H "Authorization: Bearer $SLACK_TOKEN" \
+              --data-urlencode "channel=$CHANNEL_ID" \
+              --data-urlencode "ts=$TS")
+
+            if echo "$WATCHER" | jq -r '.messages[]?.text' | grep -i -q '^ok$'; then
+              echo "🟢 Got Approbal"
+              exit 0
+            fi
+          done
+
+          echo "⏰ Approbal Timeout"
+
+      - name: Post job approbed to slack
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          method: chat.postMessage
+          token: ${{ needs.checkout.outputs.slack_bot_token }}
+          payload: |
+            channel: ${{ needs.checkout.outputs.slack_channel_id }}
+            text: "Got Approbal, Job continues"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "@everyone 🟢 *Got Approbal, Job continues*"
+      - name: Post failed to slack
+        uses: slackapi/slack-github-action@v2.1.0
+        if: steps.SLACK_WAITER.outcome == 'failure'
+        with:
+          method: chat.postMessage
+          token: ${{ needs.checkout.outputs.slack_bot_token }}
+          payload: |
+            channel: ${{ needs.checkout.outputs.slack_channel_id }}
+            text: "Approbal Timeout, Job Canceled"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "@everyone ⏰ *Approbal Timeout, Job cancelled*"
+      - name: Stop Run
+        if: steps.SLACK_WAITER.outcome == 'failure'
+        run: |
+          echo "Slack Waiter failed, stopping Workflow"
+          exit 1
+
+  deploy:
+    runs-on: "ubuntu-latest"
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: ${{ inputs.path }}
+    needs: [checkout, artifact, test, approbal]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS credentials from OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
+          aws-region: ${{ needs.checkout.outputs.account_region }}
+      - name: Restore artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: artifact
+      - name: Terraform Apply
+        run: terraform apply -auto-approve      
+      - name: Post Success to Slack
+        uses: slackapi/slack-github-action@v2.1.0
+        env:
+          ACCOUNT_NAME: ${{ needs.checkout.outputs.account_name }}
+          RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        with:
+          method: chat.postMessage
+          token: ${{ needs.checkout.outputs.slack_bot_token }}
+          payload: |
+            channel: ${{ needs.checkout.outputs.slack_channel_id }}
+            text: "Terraform Apply OK"
+            blocks:
+              - type: header
+                text:
+                  type: plain_text
+                  text: "🚀 CiCd OK for account '$ACCOUNT_NAME'"
+                  emoji: true
+              - type: section
+                text:
+                  type: mrkdwn
+                  text: "*📦 Repository:* '$REPO'"
+              - type: actions
+                elements:
+                  - type: button
+                    text:
+                      type: plain_text
+                      text: "🔗 View full Workflow Job"
+                      emoji: true
+                    url: "'$RUN_URL'"
