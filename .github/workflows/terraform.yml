@@ -3,7 +3,7 @@ name: terraform
 on:
   workflow_call:
     inputs:
-      path:
+      account:
         required: true
         type: string
     outputs:
@@ -47,7 +47,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.path }}
+        working-directory: ${{ inputs.account }}
     needs: [checkout]
     steps:
       - name: Checkout code
@@ -97,7 +97,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.path }}
+        working-directory: ${{ inputs.account }}
     needs: [checkout, artifact]
     steps:
       - name: Checkout code
@@ -144,7 +144,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.path }}
+        working-directory: ${{ inputs.account }}
     needs: [checkout, artifact, test]
     steps:
       - name: Checkout code
@@ -278,7 +278,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.path }}
+        working-directory: ${{ inputs.account }}
     needs: [checkout, artifact, test, approbal]
     steps:
       - name: Checkout code
