@@ -261,7 +261,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.path }}
-    needs: [checkout, artifact, test, approbal]
+    needs: [artifact, test, approbal]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
