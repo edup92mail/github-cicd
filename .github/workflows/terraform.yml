@@ -6,12 +6,6 @@ on:
       project:
         required: true
         type: string
-      account_id:
-        required: true
-        type: string
-      account_region:
-        required: true
-        type: string
     outputs:
       TerraformOutput:
         value: ${{ jobs.Terraform.outputs.TerraformOutput }}
@@ -29,14 +23,34 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Load Workflow variables
-        id: DATA_WORKFLOW
+      - name: Load Data Account config.json
+        id: DATA_ACCOUNT
         run: |
-          echo "slack_bot_token=$(jq -r '.slack.bot_token' variables.json)" >> $GITHUB_OUTPUT
-          echo "slack_channel=$(jq -r '.slack.channel_id' variables.json)" >> $GITHUB_OUTPUT
+          echo "account_id=$(jq -r '.projects.${{ inputs.project }}.account_id' config.json)" >> $GITHUB_OUTPUT
+          echo "account_region=$(jq -r '.projects.${{ inputs.project }}.account_region' config.json)" >> $GITHUB_OUTPUT
+      - name: Load Data Slack config.json
+        id: DATA_SLACK
+        run: |
+          echo "slack_bot_token=$(jq -r '.slack.bot_token' config.json)" >> $GITHUB_OUTPUT
+          echo "slack_channel_id=$(jq -r '.slack.channel_id' config.json)" >> $GITHUB_OUTPUT
+      - name: Load Deploy Keys
+        id: DEPLOY_KEYS
+        run: |
+          echo "keys<<EOF" >> $GITHUB_OUTPUT
+          for key in ./deploy_keys/*; do
+            cat "$key"
+            echo
+          done >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Cargar claves SSH en el agente
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ steps.DEPLOY_KEYS.outputs.keys }}
     outputs:
-      slack_bot_token: ${{ steps.DATA_WORKFLOW.outputs.slack_bot_token }}
-      slack_channel_id: ${{ steps.DATA_WORKFLOW.outputs.slack_channel_id }}
+      account_id: ${{ steps.DATA_ACCOUNT.outputs.account_id }}
+      account_region: ${{ steps.DATA_ACCOUNT.outputs.account_region }}
+      slack_bot_token: ${{ steps.DATA_SLACK.outputs.slack_bot_token }}
+      slack_channel_id: ${{ steps.DATA_SLACK.outputs.slack_channel_id }}
 
   artifact:
     runs-on: "ubuntu-latest"
@@ -59,22 +73,9 @@ jobs:
             region = "${{ needs.checkout.outputs.project_region }}"
           EOF
       - name: Append Project String > variables.tfvars
-        run: echo "project_name = \"${{ needs.checkout.outputs.project_name }}\"" >> variables.tfvars
+        run: echo "project_name = \"${{ inputs.project }}\"" >> variables.tfvars
       - name: Append Repo String > variables.tfvars
         run: echo "repo_name = \"$(basename \"$GITHUB_REPOSITORY\")\"" >> variables.tfvars
-      - name: Load Deploy Keys
-        id: DEPLOY_KEYS
-        run: |
-          echo "keys<<EOF" >> $GITHUB_OUTPUT
-          for key in ./deploy_keys/*; do
-            cat "$key"
-            echo
-          done >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      - name: Cargar claves SSH en el agente
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ steps.DEPLOY_KEYS.outputs.keys }}
       - name: Terraform Init
         run: terraform init
       - name: Upload Terraform files
@@ -234,7 +235,6 @@ jobs:
           done
 
           echo "⏰ Approbal Timeout"
-
       - name: Post job approbed to slack
         uses: slackapi/slack-github-action@v2.1.0
         with:
