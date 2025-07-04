@@ -3,7 +3,7 @@ name: terraform
 on:
   workflow_call:
     inputs:
-      account:
+      project:
         required: true
         type: string
     outputs:
@@ -26,18 +26,18 @@ jobs:
       - name: Load Data Account config.json
         id: DATA_ACCOUNT
         run: |
-          echo "account_name=$(jq -r '.projects.${{ inputs.account }}.account_name' config.json)" >> $GITHUB_OUTPUT
-          echo "account_id=$(jq -r '.projects.${{ inputs.account }}.account_id' config.json)" >> $GITHUB_OUTPUT
-          echo "account_region=$(jq -r '.projects.${{ inputs.account }}.account_region' config.json)" >> $GITHUB_OUTPUT
+          echo "project_name=$(jq -r '.projects.${{ inputs.project }}.project_name' config.json)" >> $GITHUB_OUTPUT
+          echo "project_id=$(jq -r '.projects.${{ inputs.project }}.project_id' config.json)" >> $GITHUB_OUTPUT
+          echo "project_region=$(jq -r '.projects.${{ inputs.project }}.project_region' config.json)" >> $GITHUB_OUTPUT
       - name: Load Data Slack config.json
         id: DATA_SLACK
         run: |
           echo "slack_bot_token=$(jq -r '.slack.bot_token' config.json)" >> $GITHUB_OUTPUT
           echo "slack_channel_id=$(jq -r '.slack.channel_id' config.json)" >> $GITHUB_OUTPUT
     outputs:
-      account_name: ${{ steps.DATA_ACCOUNT.outputs.account_name }}
-      account_id: ${{ steps.DATA_ACCOUNT.outputs.account_id }}
-      account_region: ${{ steps.DATA_ACCOUNT.outputs.account_region }}
+      project_name: ${{ steps.DATA_ACCOUNT.outputs.project_name }}
+      project_id: ${{ steps.DATA_ACCOUNT.outputs.project_id }}
+      project_region: ${{ steps.DATA_ACCOUNT.outputs.project_region }}
       slack_bot_token: ${{ steps.DATA_SLACK.outputs.slack_bot_token }}
       slack_channel_id: ${{ steps.DATA_SLACK.outputs.slack_channel_id }}
 
@@ -47,7 +47,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.account }}
+        working-directory: ${{ inputs.project }}
     needs: [checkout]
     steps:
       - name: Checkout code
@@ -57,12 +57,12 @@ jobs:
       - name: Generate backend.tfbackend
         run: |
           cat <<EOF > backend.tf
-            bucket = "${{ needs.checkout.outputs.account_id }}"
+            bucket = "${{ needs.checkout.outputs.project_id }}"
             key    = "state.tfstate"
-            region = "${{ needs.checkout.outputs.account_region }}"
+            region = "${{ needs.checkout.outputs.project_region }}"
           EOF
       - name: Append Project String > variables.tfvars
-        run: echo "account_name = \"${{ needs.checkout.outputs.account_name }}\"" >> variables.tfvars
+        run: echo "project_name = \"${{ needs.checkout.outputs.project_name }}\"" >> variables.tfvars
       - name: Append Repo String > variables.tfvars
         run: echo "repo_name = \"$(basename \"$GITHUB_REPOSITORY\")\"" >> variables.tfvars
       - name: Load Deploy Keys
@@ -97,7 +97,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.account }}
+        working-directory: ${{ inputs.project }}
     needs: [checkout, artifact]
     steps:
       - name: Checkout code
@@ -107,8 +107,8 @@ jobs:
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
-          aws-region: ${{ needs.checkout.outputs.account_region }}
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.project_id }}:role/${{ needs.checkout.outputs.project_id }}"
+          aws-region: ${{ needs.checkout.outputs.project_region }}
       - name: Restore artifact
         uses: actions/download-artifact@v4
         with:
@@ -144,7 +144,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.account }}
+        working-directory: ${{ inputs.project }}
     needs: [checkout, artifact, test]
     steps:
       - name: Checkout code
@@ -154,8 +154,8 @@ jobs:
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
-          aws-region: ${{ needs.checkout.outputs.account_region }}
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.project_id }}:role/${{ needs.checkout.outputs.project_id }}"
+          aws-region: ${{ needs.checkout.outputs.project_region }}
       - name: Restore artifact
         uses: actions/download-artifact@v4
         with:
@@ -173,7 +173,7 @@ jobs:
         uses: slackapi/slack-github-action@v2.1.0
         id: SLACK_APPROBAL
         env:
-          ACCOUNT_NAME: ${{ needs.checkout.outputs.account_name }}
+          ACCOUNT_NAME: ${{ needs.checkout.outputs.project_name }}
           TERRAFORM_DIFF: ${{ steps.TERRAFORM_DIFF.outputs.diff }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
@@ -186,7 +186,7 @@ jobs:
               - type: header
                 text:
                   type: plain_text
-                  text: "🚀 CiCd needs approbal for account '$ACCOUNT_NAME'"
+                  text: "🚀 CiCd needs approbal for project '$ACCOUNT_NAME'"
                   emoji: true
               - type: section
                 text:
@@ -278,7 +278,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ${{ inputs.account }}
+        working-directory: ${{ inputs.project }}
     needs: [checkout, artifact, test, approbal]
     steps:
       - name: Checkout code
@@ -288,8 +288,8 @@ jobs:
       - name: Configure AWS credentials from OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.account_id }}:role/${{ needs.checkout.outputs.account_id }}"
-          aws-region: ${{ needs.checkout.outputs.account_region }}
+          role-to-assume: "arn:aws:iam::${{ needs.checkout.outputs.project_id }}:role/${{ needs.checkout.outputs.project_id }}"
+          aws-region: ${{ needs.checkout.outputs.project_region }}
       - name: Restore artifact
         uses: actions/download-artifact@v4
         with:
@@ -299,7 +299,7 @@ jobs:
       - name: Post Success to Slack
         uses: slackapi/slack-github-action@v2.1.0
         env:
-          ACCOUNT_NAME: ${{ needs.checkout.outputs.account_name }}
+          ACCOUNT_NAME: ${{ needs.checkout.outputs.project_name }}
           RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
         with:
           method: chat.postMessage
@@ -311,7 +311,7 @@ jobs:
               - type: header
                 text:
                   type: plain_text
-                  text: "🚀 CiCd OK for account '$ACCOUNT_NAME'"
+                  text: "🚀 CiCd OK for project '$ACCOUNT_NAME'"
                   emoji: true
               - type: section
                 text:
