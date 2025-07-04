@@ -6,6 +6,12 @@ on:
       project:
         required: true
         type: string
+      account_id:
+        required: true
+        type: string
+      account_region:
+        required: true
+        type: string
     outputs:
       TerraformOutput:
         value: ${{ jobs.Terraform.outputs.TerraformOutput }}
@@ -28,16 +34,7 @@ jobs:
         run: |
           echo "slack_bot_token=$(jq -r '.slack.bot_token' variables.json)" >> $GITHUB_OUTPUT
           echo "slack_channel=$(jq -r '.slack.channel_id' variables.json)" >> $GITHUB_OUTPUT
-      - name: Load Data Account config.json
-        id: DATA_ACCOUNT
-        run: |
-          echo "project_name=$(jq -r '.projects.${{ inputs.project }}.project_name' config.json)" >> $GITHUB_OUTPUT
-          echo "project_id=$(jq -r '.projects.${{ inputs.project }}.project_id' config.json)" >> $GITHUB_OUTPUT
-          echo "project_region=$(jq -r '.projects.${{ inputs.project }}.project_region' config.json)" >> $GITHUB_OUTPUT
     outputs:
-      project_name: ${{ steps.DATA_ACCOUNT.outputs.project_name }}
-      project_id: ${{ steps.DATA_ACCOUNT.outputs.project_id }}
-      project_region: ${{ steps.DATA_ACCOUNT.outputs.project_region }}
       slack_bot_token: ${{ steps.DATA_WORKFLOW.outputs.slack_bot_token }}
       slack_channel_id: ${{ steps.DATA_WORKFLOW.outputs.slack_channel_id }}
 
