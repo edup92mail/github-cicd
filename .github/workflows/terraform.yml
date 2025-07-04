@@ -41,7 +41,6 @@ jobs:
     defaults:
       run:
         working-directory: ${{ inputs.path }}
-    needs: [checkout]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
